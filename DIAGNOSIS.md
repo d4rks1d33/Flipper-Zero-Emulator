@@ -5,16 +5,20 @@ the UI" problem and the fixes applied. Everything here was verified with CPU
 hooks on the real firmware and `arm-none-eabi-addr2line` against
 `dist/f7-D/flipper-z-f7-firmware-local.elf`.
 
-> **STATUS v2.0 — THE DESKTOP NOW BOOTS.** After peeling back a long chain of boot
-> blockers, the real firmware now **boots all the way to the desktop main scene**
-> (`MAIN_SCENE_ENTER` fires ✅), the SD card mounts, storage works, and the display
-> renders the desktop. This is the big milestone. The one thing still not 100% is
-> **button → menu navigation** (the input reaches the GUI but opening the app menu
-> is still being finalized). See §9 for the v2.0 session log and the remaining item.
+> **STATUS v3.0 — DESKTOP BOOTS + SD MOUNTS + RESOURCES LOAD (no "No database").**
+> The real firmware boots to the desktop main scene, the **SD card mounts
+> successfully** (`[StorageExt] card mounted`), the firmware **resources**
+> (NFC/IR/SubGHz databases, app FAPs, dolphin animations) are on the SD, and the
+> dolphin shows a **normal idle animation** — the "No SD card or database found"
+> screen is GONE. Verified via the firmware's own USART log. See §10 for the v3.0
+> resources fix, §9 for the v2.0 boot-chain fixes.
 >
-> **To boot it:** takes ~60–100 s of wall-clock (slow because of emulated I2C
-> timeouts for the un-emulated battery gauge). Be patient. Requires the
-> RELEASE-mode, `-DFLIPPER_EMULATOR`-patched firmware (see §9).
+> **Remaining item:** button → app-menu navigation (input reaches the GUI; opening
+> the app menu is still being finalized — see §9.5).
+>
+> **To boot it:** ~60–100 s wall-clock (slow due to emulated I2C timeouts for the
+> un-emulated battery gauge). Requires the RELEASE-mode (`DEBUG=0`),
+> `-DFLIPPER_EMULATOR`-patched firmware (§9.1).
 
 ---
 
@@ -406,3 +410,67 @@ storage_processing.c.
 The shipped `firmware/flipper-z-f7-full-EMULATOR-patched.bin` is now the
 **RELEASE** build (`dist/f7/`, DEBUG=0). If you rebuild, use `DEBUG=0` or the
 `/int` assert will crash the desktop.
+
+## 10. SESSION v3.0 — SD RESOURCES / "No database" RESOLVED
+
+### 10.1 What this fixed
+
+Earlier the desktop could show a **"No SD card or database found"** dolphin
+screen. That was NOT an emulation bug — it is a *content* problem: a freshly
+formatted SD has no `/ext/Manifest` and none of the firmware **resources**
+(NFC/IR/SubGHz databases, app `.fap`s, dolphin animation assets). The stock
+firmware ships those in `resources.ths` and flashes them to the SD during a
+normal update. Our emulator has to lay the same files on the SD image.
+
+### 10.2 The `resources.ths` format (decoded)
+
+`dist/f7/f7-update-local/resources.ths` is a **heatshrink**-compressed tar:
+
+- 7-byte header `<IBBB`: `uint32 uncompressed_size`, then `is_compressed`,
+  `window_bits` (13), `lookahead_bits` (6).
+- Body is heatshrink-compressed. Decompressing yields a POSIX **tar**
+  (1600679 → 3645440 bytes, 1141 entries) whose root has
+  `Manifest apps apps_data badusb dolphin infrared lfrfid nfc subghz u2f`.
+
+`scripts/prepare_sdcard.py` now decompresses it (`heatshrink2`, window=13,
+lookahead=6), extracts the tar, and copies the tree onto the SD image so
+`/ext/Manifest` and all databases exist.
+
+### 10.3 How it is wired for portability
+
+- A copy of `resources.ths` is shipped in the repo at **`firmware/resources.ths`**.
+- `prepare_sdcard.py::_autodetect_resources()` prefers that repo copy, then falls
+  back to a local firmware build's `dist/` output.
+- `setup.sh` calls `prepare_sdcard.py`, so a fresh clone auto-provisions a 32 GB
+  FAT32 SD **with** resources. No manual step.
+- `install.sh` now `pip install`s **heatshrink2** (needed to decompress `.ths`).
+
+### 10.4 Verified result (firmware's own USART1 log)
+
+```
+[StorageExt] card detected
+[Flipper]    Startup complete
+[StorageExt] card mounted
+[AnimationManager] Select 'L1_Procrastinating_128x64' animation
+```
+
+`card mounted` + a **normal `L1_*` idle animation** (not `L0_NoDb` / `L0_SdBad`)
+== the "No database" screen is gone. The remaining log lines
+(`/int` file-not-exist, `bq27220` gauge, `Core2`/`BT` fail, SubGHz/NFC chip id)
+are all **expected and non-fatal** (internal storage phased out, battery gauge /
+BLE / radios not emulated).
+
+### 10.5 Capturing the firmware log (for future debugging)
+
+The `.resc` sets up `CreateServerSocketTerminal 3456` on USART1. Connect a TCP
+client to `localhost:3456` **after** the machine has started (retry the connect;
+it is refused if you connect before Renode opens it). Watchpoints on the USART
+TDR (`0x40013828`) do **not** fire — the socket terminal is the reliable path.
+
+### 10.6 Files changed this session (v3.0)
+
+- `scripts/prepare_sdcard.py` — `_autodetect_resources()` prefers repo
+  `firmware/resources.ths`; `.ths` heatshrink decompress + tar extract
+  (`filter="data"` on py≥3.12); safe fallback.
+- `firmware/resources.ths` — **new**, shipped copy of the release resources.
+- `install.sh` — adds `heatshrink2` to the pip install list.

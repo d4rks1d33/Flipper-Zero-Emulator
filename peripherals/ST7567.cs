@@ -159,8 +159,16 @@ namespace Antmicro.Renode.Peripherals.Video
             try
             {
                 // Write a simple binary: 128*64 bytes, 1 byte per pixel (0/1).
-                // The Flipper display is used in flip mode with an x_offset of 4:
-                // the visible 128 columns start at GDRAM column 4.
+                //
+                // Flipper's real ST756x init (lib/u8g2/u8g2_glue.c) leaves the
+                // panel in: segment remap NORMAL (0xA0), COM direction REVERSE
+                // (0xC8), display start line 0, and visible-column x_offset = 0.
+                // With that fixed hardware orientation the GDRAM maps directly to
+                // the screen with NO extra mirroring: column x -> pixel x, page/bit
+                // -> pixel y, and the status bar lands at the TOP of the display.
+                //
+                // We honour the live remap registers on top of that so that any
+                // firmware that re-flips (0xA1 / 0xC0) still renders correctly.
                 var img = new byte[Width * Height];
                 for(var p = 0; p < Pages; p++)
                 {
@@ -184,10 +192,11 @@ namespace Antmicro.Renode.Peripherals.Video
                             {
                                 on = !on;
                             }
-                            // Flipper drives the panel flipped: segment remap
-                            // (0xA0) mirrors X and COM reverse (0xC8) mirrors Y.
+                            // Base orientation matches the Flipper hardware state
+                            // (0xA0 + 0xC8). Deviations from that state mirror the
+                            // corresponding axis.
                             var dx = columnReverse ? (Width - 1 - x) : x;
-                            var dy = comReverse ? (Height - 1 - y) : y;
+                            var dy = comReverse ? y : (Height - 1 - y);
                             img[dy * Width + dx] = (byte)(on ? 1 : 0);
                         }
                     }
@@ -218,6 +227,6 @@ namespace Antmicro.Renode.Peripherals.Video
         private const int Height = 64;
         private const int Pages = 8;
         private const int ColumnsTotal = 132;
-        private const int VisibleColumnOffset = 4; // flip-mode x_offset (u8g2_glue.c)
+        private const int VisibleColumnOffset = 0; // x_offset for 0xA0/0xC8 state (u8g2_glue.c)
     }
 }

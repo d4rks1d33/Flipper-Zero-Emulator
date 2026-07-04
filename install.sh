@@ -5,7 +5,7 @@
 # Installs everything needed to run the emulator:
 #   - Renode (portable, bundled .NET runtime) into ./tools/renode
 #   - System packages: dosfstools, mtools (SD image), python3, pip
-#   - Python packages: PySDL2, pysdl2-dll, Pillow (display frontend)
+#   - Python packages: PySDL2, pysdl2-dll, Pillow (display), heatshrink2 (SD resources)
 #   - Optionally downloads an official Flipper firmware into ./firmware
 #
 # Works on Debian/Ubuntu/Kali (apt). For other distros install the equivalents
@@ -88,15 +88,15 @@ install_python_packages() {
     log "Installing Python packages (PySDL2, pysdl2-dll, Pillow) ..."
     local pipflags="--quiet"
     # Newer pip on Debian/Kali needs --break-system-packages for global installs.
-    if pip3 install $pipflags PySDL2 pysdl2-dll Pillow 2>/dev/null; then
+    if pip3 install $pipflags PySDL2 pysdl2-dll Pillow heatshrink2 2>/dev/null; then
         :
-    elif pip3 install $pipflags --break-system-packages PySDL2 pysdl2-dll Pillow 2>/dev/null; then
+    elif pip3 install $pipflags --break-system-packages PySDL2 pysdl2-dll Pillow heatshrink2 2>/dev/null; then
         :
-    elif pip3 install $pipflags --user PySDL2 pysdl2-dll Pillow 2>/dev/null; then
+    elif pip3 install $pipflags --user PySDL2 pysdl2-dll Pillow heatshrink2 2>/dev/null; then
         :
     else
         warn "Could not install Python packages automatically."
-        warn "The SDL window and PNG export need: pip install PySDL2 pysdl2-dll Pillow"
+        warn "The SDL window and PNG export need: pip install PySDL2 pysdl2-dll Pillow heatshrink2"
         warn "The headless ASCII viewer (view_display.py) works without them."
     fi
 }

@@ -16,12 +16,16 @@ Use it to develop and test firmware / FAP apps, or to inspect what the Flipper
 > ```
 > On Windows, see [§ Windows step-by-step](#windows-step-by-step).
 
-> **v2.0 status:** the real firmware now **boots all the way to the desktop** (SD
-> card mounts, storage works, the dolphin desktop renders). Boot takes ~60–100 s
-> (slow due to emulated I2C timeouts). It requires the **RELEASE-mode**,
-> `-DFLIPPER_EMULATOR`-patched firmware included in `firmware/`. Button → app-menu
-> navigation is the one thing still being finalized. Full details and the exact
-> remaining step are in **`DIAGNOSIS.md`**.
+> **v3.0 status:** the real firmware **boots to the desktop**, the **SD card
+> mounts**, and the firmware **resources** (NFC/IR/SubGHz databases, app FAPs,
+> dolphin animations) are laid onto the SD, so the **"No SD card / database"
+> screen is gone** — the dolphin shows a normal idle animation (verified via the
+> firmware's own log). `setup.sh` auto-provisions a 32 GB FAT32 SD with resources
+> from `firmware/resources.ths` (needs the `heatshrink2` pip package, installed by
+> `install.sh`). Boot takes ~60–100 s (slow due to emulated I2C timeouts). It
+> requires the **RELEASE-mode**, `-DFLIPPER_EMULATOR`-patched firmware included in
+> `firmware/`. Button → app-menu navigation is the one thing still being finalized.
+> Full details are in **`DIAGNOSIS.md`** (§10 is the v3.0 resources fix).
 
 ---
 
@@ -29,6 +33,9 @@ Use it to develop and test firmware / FAP apps, or to inspect what the Flipper
 
 <div align="center">
   <img src="assets/Screenshots/Boot.png" width="90%" /><br />
+</div>
+<div align="center">
+  <img src="assets/Screenshots/Boot2.png" width="90%" /><br />
 </div>
 
 ## Table of contents

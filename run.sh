@@ -60,7 +60,7 @@ fi
 
 if [ -z "$FIRMWARE_BIN" ]; then
     # Prefer an emulator-patched build (boots fully: fixes battery/charger delays).
-    FIRMWARE_BIN=$(find "$SCRIPT_DIR/firmware" -name "*EMULATOR*patched*.bin" -type f 2>/dev/null | head -1)
+    FIRMWARE_BIN=$(find "firmware" -name "*EMULATOR*patched*.bin" -type f 2>/dev/null | head -1)
     if [ -z "$FIRMWARE_BIN" ]; then
         FIRMWARE_BIN=$(find "$SCRIPT_DIR/firmware" -name "*.bin" -type f 2>/dev/null | head -1)
     fi
@@ -71,7 +71,7 @@ if [ -z "$FIRMWARE_BIN" ]; then
     fi
 fi
 [ -f "$FIRMWARE_BIN" ] || { echo "Error: firmware not found: $FIRMWARE_BIN"; exit 1; }
-FIRMWARE_BIN="$(cd "$(dirname "$FIRMWARE_BIN")" && pwd)/$(basename "$FIRMWARE_BIN")"
+# FIRMWARE_BIN is now relative to SCRIPT_DIR
 
 echo "=== Flipper Zero Emulator ==="
 echo "Renode:   $RENODE"
@@ -111,7 +111,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 if [ "$LAUNCH_GUI" -eq 1 ]; then
-    sleep 3
+    sleep 10
     if python3 -c "import sdl2" 2>/dev/null; then
         echo "Launching SDL display frontend..."
         python3 "$SCRIPT_DIR/frontend/sdl_frontend.py" &

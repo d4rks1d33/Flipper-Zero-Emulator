@@ -124,9 +124,121 @@ def create_default_dirs(img_path):
         mkdir_in_image(img_path, d)
 
 
+def _decompress_ths(ths_path):
+    """Decompress a Flipper heatshrink '.ths' resources file into a .tar.
+
+    Returns the path to a temporary .tar file. The '.ths' magic is 'HSDS'
+    (heatshrink data stream). We read the header (window/lookahead) and stream
+    it through heatshrink2. Requires the `heatshrink2` Python package.
+    """
+    try:
+        import heatshrink2
+    except ImportError:
+        print("  ERROR: resources file is a .ths (heatshrink) but the "
+              "'heatshrink2' Python package is not installed.")
+        print("         Either: pip install heatshrink2")
+        print("         Or: pass an already-decompressed .tar via --resources.")
+        sys.exit(1)
+
+    with open(ths_path, 'rb') as f:
+        data = f.read()
+
+    if data[:4] != b'HSDS':
+        # Already a plain tar? just return as-is.
+        return ths_path
+
+    # HeatshrinkDataStreamHeader (Flipper): struct "<IBBB" = 7 bytes:
+    #   magic(4)='HSDS'  version(1)=1  window_sz2(1)  lookahead_sz2(1)
+    import struct
+    magic, version, window, lookahead = struct.unpack('<IBBB', data[:7])
+    payload = data[7:]
+
+    decompressed = heatshrink2.decompress(
+        payload, window_sz2=window, lookahead_sz2=lookahead)
+
+    out = tempfile.mktemp(suffix='.tar')
+    with open(out, 'wb') as f:
+        f.write(decompressed)
+    print(f"  Decompressed resources ({len(data)} -> {len(decompressed)} bytes)")
+    return out
+
+
+def prepare_resources(img_path, resources_path):
+    """Extract the firmware 'resources' (.ths or .tar) onto the SD image.
+
+    Flipper Zero ships its compiled firmware separately from its resources
+    (NFC parser plugins, IR universal remotes, SubGHz maps, app FAPs, the
+    dolphin animations, etc.). On real hardware qFlipper copies these to the SD
+    when updating. Without them the firmware shows "No SD card or database
+    found". This lays the resources onto the SD image so the emulated Flipper
+    has a complete filesystem.
+    """
+    print(f"Adding firmware resources from: {resources_path}")
+
+    tar_path = resources_path
+    cleanup = None
+    if resources_path.endswith('.ths') or open(resources_path, 'rb').read(4) == b'HSDS':
+        tar_path = _decompress_ths(resources_path)
+        if tar_path != resources_path:
+            cleanup = tar_path
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with tarfile.open(tar_path, 'r:') as tar:
+            try:
+                tar.extractall(tmpdir, filter="data")  # py>=3.12
+            except TypeError:
+                tar.extractall(tmpdir)
+
+        # The tar root usually contains apps/, apps_data/, dolphin/, infrared/,
+        # nfc/, subghz/, Manifest, etc. Copy each top-level entry to the SD root.
+        entries = sorted(os.listdir(tmpdir))
+        for name in entries:
+            src = os.path.join(tmpdir, name)
+            dest = '/' + name
+            if os.path.isdir(src):
+                mkdir_in_image(img_path, dest)
+                # mcopy -s recursively copies directory contents
+                copy_to_image(img_path, src, dest.rsplit('/', 1)[0] or '/')
+            else:
+                copy_to_image(img_path, src, dest)
+            print(f"  + {name}")
+
+    if cleanup and os.path.exists(cleanup):
+        os.remove(cleanup)
+    print("  Resources installed on SD image.")
+
+
+def _autodetect_resources():
+    """Try to find a resources.ths/.tar to lay onto the SD image.
+
+    Priority: a copy shipped in the repo's firmware/ dir, then a local firmware
+    build's dist output.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    project = os.path.dirname(here)
+    candidates = [
+        os.path.join(project, 'firmware', 'resources.ths'),
+        os.path.join(project, 'firmware', 'resources.tar'),
+        '/opt/emu-test/flipperzero-firmware/dist/f7/f7-update-local/resources.ths',
+        '/opt/emu-test/flipperzero-firmware/dist/f7-D/f7-update-local/resources.ths',
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description='Prepare Flipper Zero SD card image')
     parser.add_argument('--update-tgz', help='Path to update .tgz package')
+    parser.add_argument('--resources',
+                        help='Path to firmware resources (resources.ths or .tar). '
+                             'Extracted onto the SD so the firmware has its NFC/IR/'
+                             'SubGHz databases and app FAPs (fixes "No SD card or '
+                             'database found"). Auto-detected from a local build if '
+                             'not given.')
+    parser.add_argument('--no-resources', action='store_true',
+                        help='Do not add firmware resources even if auto-detected.')
     parser.add_argument('--output', default='sdcard/sdcard.img',
                         help='Output image path (default: sdcard/sdcard.img)')
     parser.add_argument('--size', type=int, default=32768,
@@ -143,6 +255,20 @@ def main():
 
     create_fat32_image(output, args.size)
     create_default_dirs(output)
+
+    # Firmware resources (NFC/IR/SubGHz databases, app FAPs, dolphin animations).
+    if not args.no_resources:
+        res = args.resources or _autodetect_resources()
+        if res and os.path.exists(res):
+            prepare_resources(output, os.path.abspath(res))
+        elif args.resources:
+            print(f"Error: resources file not found: {args.resources}")
+            sys.exit(1)
+        else:
+            print("Note: no firmware resources found (build with "
+                  "'./fbt DEBUG=0 updater_package' and pass --resources, or place "
+                  "them where prepare_sdcard.py auto-detects). The firmware will "
+                  "show 'No SD card or database found' without them.")
 
     if args.update_tgz:
         tgz = os.path.abspath(args.update_tgz)
