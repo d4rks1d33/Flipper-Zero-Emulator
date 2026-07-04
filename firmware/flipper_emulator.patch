@@ -1,0 +1,115 @@
+diff --git a/applications/services/input/input.c b/applications/services/input/input.c
+index d7e9f3d..21fd894 100644
+--- a/applications/services/input/input.c
++++ b/applications/services/input/input.c
+@@ -117,11 +117,20 @@ int32_t input_srv(void* p) {
+         bool is_changing = false;
+         for(size_t i = 0; i < input_pins_count; i++) {
+             bool state = GPIO_Read(pin_states[i]);
++#ifdef FLIPPER_EMULATOR
++            /* Emulator patch: snap debounce to its terminal value in one poll.
++             * The gradual debounce needs several furi_delay_tick() self-loops,
++             * which are timing-fragile under functional emulation and make button
++             * presses register unreliably. Injected GPIO edges are already clean,
++             * so no debounce is needed. */
++            pin_states[i].debounce = state ? INPUT_DEBOUNCE_TICKS : 0;
++#else
+             if(state) {
+                 if(pin_states[i].debounce < INPUT_DEBOUNCE_TICKS) pin_states[i].debounce += 1;
+             } else {
+                 if(pin_states[i].debounce > 0) pin_states[i].debounce -= 1;
+             }
++#endif
+ 
+             if(pin_states[i].debounce > 0 && pin_states[i].debounce < INPUT_DEBOUNCE_TICKS) {
+                 is_changing = true;
+diff --git a/targets/f7/furi_hal/furi_hal_power.c b/targets/f7/furi_hal/furi_hal_power.c
+index fe5c0cf..46ee9e8 100644
+--- a/targets/f7/furi_hal/furi_hal_power.c
++++ b/targets/f7/furi_hal/furi_hal_power.c
+@@ -70,6 +70,14 @@ void furi_hal_power_init(void) {
+ #endif
+ 
+     furi_hal_i2c_acquire(&furi_hal_i2c_handle_power);
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: the battery gauge (bq27220) and charger (bq25896) are not
++     * emulated. Their init fails and the stock code waits furi_delay_us(4000000)
++     * per retry, which is minutes of wall-clock in the emulator. Skip the probe
++     * and mark them absent; power reads fall back to safe defaults elsewhere. */
++    furi_hal_power.gauge_ok = false;
++    furi_hal_power.charger_ok = false;
++#else
+     // Find and init gauge
+     size_t retry = 2;
+     while(retry > 0) {
+@@ -98,6 +106,7 @@ void furi_hal_power_init(void) {
+         }
+         retry--;
+     }
++#endif
+     furi_hal_i2c_release(&furi_hal_i2c_handle_power);
+ 
+     FURI_LOG_I(TAG, "Init OK");
+@@ -160,7 +169,17 @@ void furi_hal_power_insomnia_exit(void) {
+ }
+ 
+ bool furi_hal_power_sleep_available(void) {
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: disable tickless-idle deep sleep. It relies on the LPTIM1
++     * wake-up interrupt to resume threads that call furi_delay_tick(); under
++     * functional emulation that wake path is unreliable and starves the input
++     * debounce loop (buttons never register). Returning false makes the idle
++     * task use plain __WFI(), which Renode wakes on the SysTick interrupt, so
++     * furi_delay_tick() and button debounce work normally. */
++    return false;
++#else
+     return furi_hal_power.insomnia == 0;
++#endif
+ }
+ 
+ static inline bool furi_hal_power_deep_sleep_available(void) {
+diff --git a/targets/f7/furi_hal/furi_hal_sd.c b/targets/f7/furi_hal/furi_hal_sd.c
+index 1521927..82c46d1 100644
+--- a/targets/f7/furi_hal/furi_hal_sd.c
++++ b/targets/f7/furi_hal/furi_hal_sd.c
+@@ -217,6 +217,14 @@ static inline void sd_spi_deselect_card(void) {
+ }
+ 
+ static void sd_spi_bus_to_ground(void) {
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: the physical power-cycle of the SD card is done by
++     * bit-banging MISO/MOSI/SCK as GPIO. Renode emulates at the functional
++     * (not cycle) level and cannot translate those GPIO toggles into the SPI
++     * byte stream, which corrupts SD init. Keep the pins on the SPI peripheral
++     * and skip the bus grounding entirely. */
++    return;
++#else
+     furi_hal_gpio_init_ex(
+         furi_hal_sd_spi_handle->miso,
+         GpioModeOutputPushPull,
+@@ -240,9 +248,17 @@ static void sd_spi_bus_to_ground(void) {
+     furi_hal_gpio_write(furi_hal_sd_spi_handle->miso, false);
+     furi_hal_gpio_write(furi_hal_sd_spi_handle->mosi, false);
+     furi_hal_gpio_write(furi_hal_sd_spi_handle->sck, false);
++#endif
+ }
+ 
+ static void sd_spi_bus_rise_up(void) {
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: counterpart of sd_spi_bus_to_ground(). The SPI pins were
++     * never taken to GPIO, so there is nothing to restore; just make sure the
++     * card is deselected. */
++    sd_spi_deselect_card();
++    return;
++#else
+     sd_spi_deselect_card();
+ 
+     furi_hal_gpio_init_ex(
+@@ -263,6 +279,7 @@ static void sd_spi_bus_rise_up(void) {
+         GpioPullUp,
+         GpioSpeedVeryHigh,
+         GpioAltFn5SPI2);
++#endif
+ }
+ 
+ static inline uint8_t sd_spi_read_byte(void) {

@@ -1,0 +1,119 @@
+# Flipper Zero Emulator - Main Renode Script
+#
+# Usage:
+#   renode -e '$firmware_bin=@firmware/flipper-z-f7-full-1.4.3.bin; include @scripts/flash_firmware.resc'
+#
+# Optional variables (set before include):
+#   $firmware_bin  - path to flipper-z-f7-full-X.XX.X.bin  (required)
+#   $sdcard_img    - path to SD card image .img            (optional)
+#
+# The project root must be the current working directory (run.sh handles this).
+
+# ─── Machine + platform ──────────────────────────────────────────────────────
+# The platform .repl is generated from platform/stm32wb55_flipper.repl.in by
+# setup.sh / run.sh (which substitute the absolute project path). This makes the
+# repo portable across machines.
+mach create "flipper"
+
+# The custom WB55 EXTI C# type must be compiled BEFORE the platform is loaded,
+# because the .repl references IRQControllers.STM32WB55_EXTI.
+i @peripherals/STM32WB55_EXTI.cs
+
+machine LoadPlatformDescription @platform/stm32wb55_flipper.repl
+
+# ─── Custom C# peripherals (compiled on the fly) ─────────────────────────────
+i @peripherals/LP5562.cs
+i @peripherals/ST7567.cs
+i @peripherals/CC1101.cs
+i @peripherals/ST25R3916.cs
+i @peripherals/Spi1Router.cs
+
+machine LoadPlatformDescriptionFromString "lp5562: Sensors.LP5562 @ i2c1 0x30"
+machine LoadPlatformDescriptionFromString "display: Video.ST7567 @ spi2"
+machine LoadPlatformDescriptionFromString "gpioPortB: { 1 -> display@0 }"
+
+# SPI1 shared bus: CC1101 (SubGHz, CS=PD0) + ST25R3916 (NFC, CS=PE4)
+# Router forwards bytes to the device whose CS is asserted.
+machine LoadPlatformDescriptionFromString "spi1radio: SPI.Spi1Router @ spi1"
+machine LoadPlatformDescriptionFromString "gpioPortD: { 0 -> spi1radio@0 }"
+machine LoadPlatformDescriptionFromString "gpioPortE: { 4 -> spi1radio@1 }"
+
+# ─── USART1 debug console (230400 baud) over TCP socket ──────────────────────
+# Connect with:  telnet localhost 3456   (or use screen/nc)
+emulation CreateServerSocketTerminal 3456 "flipper_uart" false
+connector Connect usart1 flipper_uart
+
+# ─── OTP / UID provisioning ──────────────────────────────────────────────────
+# Empty OTP (0xFFFFFFFF) => FuriHalVersionOtpVersionEmpty, safe defaults.
+macro ProvisionOtp
+"""
+    sysbus WriteDoubleWord 0x1FFF7000 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF7004 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF7008 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF700C 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF7590 0xDEADBEEF
+    sysbus WriteDoubleWord 0x1FFF7594 0xCAFEBABE
+    sysbus WriteDoubleWord 0x1FFF7598 0x12345678
+    sysbus WriteDoubleWord 0x1FFF7580 0x00C0FFEE
+    sysbus WriteDoubleWord 0x1FFF7584 0x00000042
+    sysbus WriteDoubleWord 0x1FFF7500 0x00000011
+"""
+
+# ─── Firmware load ────────────────────────────────────────────────────────────
+# The .bin maps 1:1 to flash at 0x08000000.
+macro LoadFirmware
+"""
+    sysbus LoadBinary $firmware_bin 0x08000000
+    cpu VectorTableOffset 0x08000000
+"""
+
+# ─── Button initial states (CRITICAL) ────────────────────────────────────────
+# Renode does not simulate the internal pull-ups, so button input pins read 0 by
+# default. Active-low buttons (Up/Down/Left/Right/Back) would then look PRESSED,
+# and main() would boot into DFU (holding Left) or recovery (holding Up).
+# Drive each pin to its idle level so the firmware boots to the desktop:
+#   inverted (active-low) buttons  -> line HIGH (not pressed)
+#   OK (PH3, active-high)          -> line LOW  (not pressed)
+# Also: SD card-detect PC10 HIGH = no card (until an SD flow sets it low).
+macro SetButtonsIdle
+"""
+    gpioPortB OnGPIO 10 true
+    gpioPortB OnGPIO 11 true
+    gpioPortB OnGPIO 12 true
+    gpioPortC OnGPIO 6 true
+    gpioPortC OnGPIO 13 true
+    gpioPortH OnGPIO 3 false
+    gpioPortC OnGPIO 10 true
+"""
+
+# ─── Reset macro: re-provision + reload on SYSRESETREQ ───────────────────────
+macro reset
+"""
+    runMacro $ProvisionOtp
+    runMacro $LoadFirmware
+    runMacro $SetButtonsIdle
+    start
+"""
+
+# ─── Execute setup ────────────────────────────────────────────────────────────
+runMacro $ProvisionOtp
+runMacro $LoadFirmware
+runMacro $SetButtonsIdle
+
+# ─── Logging ──────────────────────────────────────────────────────────────────
+logLevel 3 sysbus
+logLevel 3 i2c1
+logLevel 3 spi1
+logLevel 3 spi2
+logLevel 3 exti
+logLevel 3 gpioPortA
+logLevel 3 gpioPortB
+logLevel 3 gpioPortC
+logLevel 3 nvic
+
+echo "Flipper Zero emulator ready."
+echo "  Display framebuffer: FLIPPER_EMU_FB_PATH (default /tmp/flipper_fb.raw)"
+echo "  USART1 debug console: TCP port 3456"
+echo "  Radio logs (JSONL): logs/"
+echo "Starting CPU..."
+start

@@ -1,0 +1,29 @@
+# Downloaded tools (installed by install.sh)
+/tools/
+
+# Generated per-machine files (created from *.in by setup.sh)
+/platform/stm32wb55_flipper.repl
+/scripts/run_updater.resc
+
+# Runtime artifacts
+/logs/*.jsonl
+/sdcard/*.img
+/tmp/
+*.raw
+
+# Firmware binaries (large; user-provided or downloaded by install.sh).
+# The emulator patch (firmware/flipper_emulator.patch) IS tracked so anyone can
+# rebuild a patched firmware from source.
+/firmware/*.bin
+/firmware/*.dfu
+/firmware/*.tgz
+/firmware/*.elf
+!/firmware/flipper_emulator.patch
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor / OS
+*.swp
+.DS_Store

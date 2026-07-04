@@ -1,0 +1,339 @@
+// STM32WB55RG Platform Description for Flipper Zero Emulator
+// Memory map from linker scripts and stm32wb55xx.h CMSIS header
+
+// ─── Memory ────────────────────────────────────────────────────────────────
+
+flash: Memory.MappedMemory @ {
+        sysbus 0x08000000;
+        sysbus 0x00000000
+    }
+    size: 0x100000  // 1 MB (aliased at both 0x0 and 0x08000000)
+
+sram1: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x30000   // 192 KB (SRAM1)
+
+sram2a: Memory.MappedMemory @ sysbus 0x20030000
+    size: 0x2800    // 10 KB (SRAM2a - IPCC mailbox, mapping table)
+
+sram2b: Memory.MappedMemory @ sysbus 0x20038000
+    size: 0x2800    // 10 KB (SRAM2b)
+
+// System memory (ST bootloader ROM) - OTP, UID, etc.
+systemMemory: Memory.MappedMemory @ sysbus 0x1FFF0000
+    size: 0x7000    // 28 KB system memory
+
+// OTP area - 1 KB at 0x1FFF7000
+// Pre-filled as 0xFF (empty OTP = FuriHalVersionOtpVersionEmpty)
+otpArea: Memory.MappedMemory @ sysbus 0x1FFF7000
+    size: 0x400
+
+// ENGI bytes
+engiBytes: Memory.MappedMemory @ sysbus 0x1FFF7400
+    size: 0xC00
+
+// Option bytes area
+optionBytes: Memory.MappedMemory @ sysbus 0x1FFF8000
+    size: 0x1000
+
+// ─── CPU and NVIC ──────────────────────────────────────────────────────────
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    nvic: nvic
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 64000000
+    IRQ -> cpu@0
+
+// ─── DWT (Data Watchpoint and Trace - cycle counter) ───────────────────────
+
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 64000000
+
+// ─── RCC (Reset and Clock Control) ─────────────────────────────────────────
+// Custom Python peripheral that returns "ready" for all clock sources
+
+rcc: Python.PythonPeripheral @ sysbus 0x58000000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/rcc_wb55.py"
+
+// ─── PWR (Power Control) ──────────────────────────────────────────────────
+
+pwr: Python.PythonPeripheral @ sysbus 0x58000400
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/pwr_wb55.py"
+
+// ─── EXTI ──────────────────────────────────────────────────────────────────
+
+// Custom WB55 EXTI (correct register layout: IMR1 at 0x80, etc.). Its C# type
+// is compiled by the launch script (i @peripherals/STM32WB55_EXTI.cs) BEFORE
+// this platform is loaded.
+exti: IRQControllers.STM32WB55_EXTI @ sysbus 0x58000800
+    [0-4] -> nvic@[6-10]
+    [5-9] -> nvicInput23@[0-4]
+    [10-15] -> nvicInput40@[0-5]
+
+nvicInput23: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 5
+    -> nvic@23
+
+nvicInput40: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 6
+    -> nvic@40
+
+// ─── IPCC (Inter-Processor Communication Controller) ───────────────────────
+
+ipcc: Python.PythonPeripheral @ sysbus 0x58000C00
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/ipcc_stub.py"
+
+// ─── RNG ───────────────────────────────────────────────────────────────────
+
+rng: Python.PythonPeripheral @ sysbus 0x58001000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/rng_wb55.py"
+
+// ─── HSEM (Hardware Semaphore) ─────────────────────────────────────────────
+
+hsem: Python.PythonPeripheral @ sysbus 0x58001400
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/hsem_wb55.py"
+
+// ─── Flash Controller Registers ────────────────────────────────────────────
+
+flashController: Python.PythonPeripheral @ sysbus 0x58004000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/flash_controller_wb55.py"
+
+// ─── GPIO Ports ────────────────────────────────────────────────────────────
+// AHB2 / IOPORT base = 0x48000000
+
+gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x48000000, +0x400>
+    modeResetValue: 0xABFFFFFF
+    outputSpeedResetValue: 0x0C000000
+    pullUpPullDownResetValue: 0x64000000
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x48000400, +0x400>
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x48000800, +0x400>
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortD: GPIOPort.STM32_GPIOPort @ sysbus <0x48000C00, +0x400>
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortE: GPIOPort.STM32_GPIOPort @ sysbus <0x48001000, +0x400>
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortH: GPIOPort.STM32_GPIOPort @ sysbus <0x48001C00, +0x400>
+    modeResetValue: 0x000000C0
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+// ─── SYSCFG ────────────────────────────────────────────────────────────────
+
+syscfg: Python.PythonPeripheral @ sysbus 0x40010000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/syscfg_wb55.py"
+
+// ─── SPI1 (APB2 - SubGHz CC1101, NFC ST25R3916) ───────────────────────────
+
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+    IRQ -> nvic@34
+
+// ─── SPI2 (APB1 - Display ST7567, SD Card) ────────────────────────────────
+
+spi2: SPI.STM32SPI @ sysbus 0x40003800
+    IRQ -> nvic@35
+
+// ─── USART1 (APB2 - debug/log console at 230400) ──────────────────────────
+
+usart1: UART.STM32F7_USART @ sysbus 0x40013800
+    frequency: 64000000
+    IRQ -> nvic@36
+
+// ─── LPUART1 (APB1) ───────────────────────────────────────────────────────
+
+lpuart1: UART.STM32F7_USART @ sysbus 0x40008000
+    frequency: 64000000
+    lowPowerMode: true
+    IRQ -> nvic@37
+
+// ─── I2C1 (APB1 - LP5562 LED driver) ──────────────────────────────────────
+
+i2c1: I2C.STM32F7_I2C @ sysbus 0x40005400
+    EventInterrupt -> nvic@30
+    ErrorInterrupt -> nvic@31
+
+// ─── I2C3 ──────────────────────────────────────────────────────────────────
+
+i2c3: I2C.STM32F7_I2C @ sysbus 0x40005C00
+    EventInterrupt -> nvic@32
+    ErrorInterrupt -> nvic@33
+
+// ─── Timers ────────────────────────────────────────────────────────────────
+
+timer1: Timers.STM32_Timer @ sysbus 0x40012C00
+    frequency: 64000000
+    initialLimit: 0xFFFF
+
+timer2: Timers.STM32_Timer @ sysbus 0x40000000
+    frequency: 64000000
+    initialLimit: 0xFFFFFFFF
+
+timer16: Timers.STM32_Timer @ sysbus 0x40014400
+    frequency: 64000000
+    initialLimit: 0xFFFF
+
+timer17: Timers.STM32_Timer @ sysbus 0x40014800
+    frequency: 64000000
+    initialLimit: 0xFFFF
+
+// ─── LPTIM1 (tickless idle) ────────────────────────────────────────────────
+
+lptim1: Timers.STM32L0_LpTimer @ sysbus 0x40007C00
+    frequency: 32768
+    -> nvic@47
+
+// ─── LPTIM2 ────────────────────────────────────────────────────────────────
+
+lptim2: Timers.STM32L0_LpTimer @ sysbus 0x40009400
+    frequency: 32768
+    -> nvic@48
+
+// ─── RTC ───────────────────────────────────────────────────────────────────
+
+rtc: Python.PythonPeripheral @ sysbus 0x40002800
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/rtc_wb55.py"
+
+// ─── CRC ───────────────────────────────────────────────────────────────────
+
+crc: CRC.STM32_CRC @ sysbus 0x40023000
+    series: STM32Series.F4
+
+// ─── DMA1 ──────────────────────────────────────────────────────────────────
+
+dma1: DMA.STM32G0DMA @ sysbus 0x40020000
+    numberOfChannels: 7
+    [0-6] -> nvic@[11-17]
+
+// ─── DMA2 ──────────────────────────────────────────────────────────────────
+
+dma2: DMA.STM32G0DMA @ sysbus 0x40020400
+    numberOfChannels: 7
+    [0-6] -> nvic@[55-61]
+
+// ─── DMAMUX1 ───────────────────────────────────────────────────────────────
+
+dmamux1: Miscellaneous.STM32_DMAMUX @ sysbus 0x40020800
+    numberOfOutputRequestChannels: 14
+    numberOfRequestGeneratorChannels: 4
+
+// ─── USB FS device ─────────────────────────────────────────────────────────
+
+usbDevice: Python.PythonPeripheral @ sysbus 0x40006800
+    size: 0x800
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/usb_stub.py"
+
+// ─── ADC1 ──────────────────────────────────────────────────────────────────
+
+adc1: Python.PythonPeripheral @ sysbus 0x50040000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/adc_stub.py"
+
+// ─── AES1 (AHB2) ──────────────────────────────────────────────────────────
+
+aes1: Python.PythonPeripheral @ sysbus 0x50060000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/aes_stub.py"
+
+// ─── AES2 (AHB4) ──────────────────────────────────────────────────────────
+
+aes2: Python.PythonPeripheral @ sysbus 0x58001800
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/aes_stub.py"
+
+// ─── PKA ───────────────────────────────────────────────────────────────────
+
+pka: Python.PythonPeripheral @ sysbus 0x58002000
+    size: 0x2000
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/pka_stub.py"
+
+// ─── CRS (Clock Recovery System) ──────────────────────────────────────────
+
+crs: Python.PythonPeripheral @ sysbus 0x40006000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"
+
+// ─── WWDG ──────────────────────────────────────────────────────────────────
+
+wwdg: Python.PythonPeripheral @ sysbus 0x40002C00
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"
+
+// ─── IWDG ──────────────────────────────────────────────────────────────────
+
+iwdg: Python.PythonPeripheral @ sysbus 0x40003000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"
+
+// ─── VREFBUF (inside SYSCFG 0x400 range, handled by syscfg stub) ──────
+
+// ─── TSC ───────────────────────────────────────────────────────────────────
+
+tsc: Python.PythonPeripheral @ sysbus 0x40024000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"
+
+// ─── SAI1 ──────────────────────────────────────────────────────────────────
+
+sai1: Python.PythonPeripheral @ sysbus 0x40015400
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"
+
+// ─── COMP (inside SYSCFG 0x400 range, handled by syscfg stub) ─────────
+
+// ─── LCD controller (not used by Flipper but bus init touches it) ──────────
+
+lcdCtrl: Python.PythonPeripheral @ sysbus 0x40002400
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"
+
+// ─── QUADSPI ───────────────────────────────────────────────────────────────
+
+quadspi: Python.PythonPeripheral @ sysbus 0x90000000
+    size: 0x10000000
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"
+
+quadspiRegs: Python.PythonPeripheral @ sysbus 0xA0001000
+    size: 0x400
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/generic_stub.py"

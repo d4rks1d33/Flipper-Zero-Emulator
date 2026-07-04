@@ -1,0 +1,113 @@
+# Flipper Zero Emulator - OTA self-update flow
+#
+# Reproduces the real hardware update mechanism:
+#   1. SD card image contains /update/<version>/ (from prepare_sdcard.py) and
+#      the /.fupdate pointer file.
+#   2. We force the RTC boot mode to "Update" (as update_operation would after
+#      the user confirms an update), with a valid RTC header.
+#   3. main() sees FuriHalRtcBootModeUpdate and calls flipper_boot_update_exec():
+#        - mounts the SD, reads /.fupdate -> manifest path
+#        - loads updater.bin, verifies its Loader CRC
+#        - copies the updater to SRAM1 (0x20000000), remaps SRAM to 0x0,
+#          and jumps to it (furi_hal_switch)
+#        - the updater then flashes firmware.dfu, installs the radio stack via
+#          FUS (stubbed), extracts resources, and reboots.
+#
+# Usage (via run.sh --with-update) or directly:
+#   $firmware_bin=@firmware/flipper-z-f7-full-X.bin
+#   $sdcard=@sdcard/sdcard.img
+#   include @scripts/run_updater.resc
+
+mach create "flipper"
+machine LoadPlatformDescription @platform/stm32wb55_flipper.repl
+
+# Custom peripherals
+i @peripherals/LP5562.cs
+i @peripherals/ST7567.cs
+i @peripherals/CC1101.cs
+i @peripherals/ST25R3916.cs
+i @peripherals/Spi1Router.cs
+i @peripherals/Spi2Router.cs
+i @peripherals/FlipperSdCard.cs
+
+machine LoadPlatformDescriptionFromString "lp5562: Sensors.LP5562 @ i2c1 0x30"
+
+# SPI2 shared by display (CS=PC11) and SD card (CS=PC12).
+# Define display, SD card and the router together so references resolve.
+# FlipperSdCard is our own SD-SPI model (Renode's stock SD SPI mode is fragile
+# with the Flipper driver). Requires firmware built with -DFLIPPER_EMULATOR.
+machine LoadPlatformDescriptionFromString
+"""
+display: Video.ST7567 @ none
+
+sdcard: SPI.FlipperSdCard @ none
+    imageFile: "@PROJECT_DIR@/sdcard/sdcard.img"
+    capacity: 0x800000000
+
+spi2mux: SPI.Spi2Router @ spi2
+    display: display
+    sdcard: sdcard
+"""
+machine LoadPlatformDescriptionFromString "gpioPortC: { 11 -> spi2mux@0; 12 -> spi2mux@1 }"
+machine LoadPlatformDescriptionFromString "gpioPortB: { 1 -> spi2mux@2 }"
+
+# SPI1 radios
+machine LoadPlatformDescriptionFromString "spi1radio: SPI.Spi1Router @ spi1"
+machine LoadPlatformDescriptionFromString "gpioPortD: { 0 -> spi1radio@0 }"
+machine LoadPlatformDescriptionFromString "gpioPortE: { 4 -> spi1radio@1 }"
+
+# SD card detect: PC10 low = present
+gpioPortC OnGPIO 10 false
+
+# USART1 debug console over TCP
+emulation CreateServerSocketTerminal 3456 "flipper_uart" false
+connector Connect usart1 flipper_uart
+
+macro ProvisionOtp
+"""
+    sysbus WriteDoubleWord 0x1FFF7000 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF7004 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF7008 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF700C 0xFFFFFFFF
+    sysbus WriteDoubleWord 0x1FFF7590 0xDEADBEEF
+    sysbus WriteDoubleWord 0x1FFF7594 0xCAFEBABE
+    sysbus WriteDoubleWord 0x1FFF7598 0x12345678
+    sysbus WriteDoubleWord 0x1FFF7580 0x00C0FFEE
+    sysbus WriteDoubleWord 0x1FFF7584 0x00000042
+    sysbus WriteDoubleWord 0x1FFF7500 0x00000011
+"""
+
+# Force RTC boot mode = Update, with a valid RTC header.
+# Header (BKP0R @ 0x40002850): magic 0x10F1, version 0
+# System (BKP1R @ 0x40002854): boot_mode (bits 19:16) = 2 (Update)
+macro ForceUpdateBoot
+"""
+    sysbus WriteDoubleWord 0x40002850 0x000010F1
+    sysbus WriteDoubleWord 0x40002854 0x00020000
+"""
+
+macro LoadFirmware
+"""
+    sysbus LoadBinary $firmware_bin 0x08000000
+    cpu VectorTableOffset 0x08000000
+"""
+
+macro reset
+"""
+    runMacro $ProvisionOtp
+    runMacro $LoadFirmware
+    runMacro $ForceUpdateBoot
+    start
+"""
+
+runMacro $ProvisionOtp
+runMacro $LoadFirmware
+runMacro $ForceUpdateBoot
+
+logLevel 3 sysbus
+logLevel 3 spi2
+logLevel 1 usart1
+
+echo "Flipper Zero updater flow starting (boot mode = Update)..."
+echo "Watch USART1 (TCP 3456) for updater progress."
+start
