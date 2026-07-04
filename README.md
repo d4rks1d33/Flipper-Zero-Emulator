@@ -25,6 +25,12 @@ Use it to develop and test firmware / FAP apps, or to inspect what the Flipper
 
 ---
 
+## Screenshots:
+
+<div align="center">
+  <img src="assets/Screenshots/Boot.png" width="90%" /><br />
+</div>
+
 ## Table of contents
 
 1. [What you get](#what-you-get)
