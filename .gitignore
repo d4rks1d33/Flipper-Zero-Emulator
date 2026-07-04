@@ -4,6 +4,7 @@
 # Generated per-machine files (created from *.in by setup.sh)
 /platform/stm32wb55_flipper.repl
 /scripts/run_updater.resc
+/scripts/flash_firmware.resc
 
 # Runtime artifacts
 /logs/*.jsonl

@@ -16,6 +16,13 @@ Use it to develop and test firmware / FAP apps, or to inspect what the Flipper
 > ```
 > On Windows, see [§ Windows step-by-step](#windows-step-by-step).
 
+> **v2.0 status:** the real firmware now **boots all the way to the desktop** (SD
+> card mounts, storage works, the dolphin desktop renders). Boot takes ~60–100 s
+> (slow due to emulated I2C timeouts). It requires the **RELEASE-mode**,
+> `-DFLIPPER_EMULATOR`-patched firmware included in `firmware/`. Button → app-menu
+> navigation is the one thing still being finalized. Full details and the exact
+> remaining step are in **`DIAGNOSIS.md`**.
+
 ---
 
 ## Table of contents
@@ -252,15 +259,21 @@ the patch only adds `#ifdef FLIPPER_EMULATOR` blocks in 3 files:
 `applications/services/input/input.c`. Open the `.patch` file; it's short and
 readable.
 
-**3. Build with the define:**
+**3. Build with the define — in RELEASE mode (`DEBUG=0`):**
 ```bash
-./fbt --extra-define=FLIPPER_EMULATOR updater_package
+./fbt DEBUG=0 --extra-define=FLIPPER_EMULATOR updater_package
 ```
 First run downloads the ARM toolchain (~300 MB) automatically.
 
+> **`DEBUG=0` is required.** This firmware version phased out internal storage
+> (`/int`), so a debug build hits `furi_assert(type == ST_EXT)` and crashes on
+> boot when the desktop reads its settings. Release mode disables `furi_assert`,
+> matching real hardware. The release build lands in `dist/f7/` (no `-D` suffix).
+> The patch also spans more files now — see `DIAGNOSIS.md` §9 for the full list.
+
 **4. Grab the result and drop it into the emulator:**
 ```bash
-cp dist/f7-D/flipper-z-f7-full-local.bin \
+cp dist/f7/flipper-z-f7-full-local.bin \
    /path/to/flipper-emulator/firmware/flipper-z-f7-full-EMULATOR-patched.bin
 ```
 

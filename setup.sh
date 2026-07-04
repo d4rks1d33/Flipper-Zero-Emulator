@@ -28,9 +28,21 @@ generate() {
 }
 
 generate "platform/stm32wb55_flipper.repl.in" "platform/stm32wb55_flipper.repl"
+generate "scripts/flash_firmware.resc.in"     "scripts/flash_firmware.resc"
 generate "scripts/run_updater.resc.in"        "scripts/run_updater.resc"
 
 # Ensure runtime dirs exist.
 mkdir -p logs sdcard firmware
+
+# The emulator needs an SD card image (storage mounts it at boot). Create a
+# 32 GB FAT32 image with the standard Flipper folders if one doesn't exist yet.
+if [ ! -f sdcard/sdcard.img ]; then
+    log "creating SD card image (32 GB sparse FAT32)..."
+    if python3 scripts/prepare_sdcard.py >/dev/null 2>&1; then
+        log "SD card image ready: sdcard/sdcard.img"
+    else
+        printf '\033[1;33m[setup]\033[0m could not auto-create SD image; run: python3 scripts/prepare_sdcard.py\n'
+    fi
+fi
 
 log "setup complete for project dir: $SCRIPT_DIR"

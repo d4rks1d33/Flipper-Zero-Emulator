@@ -23,6 +23,69 @@ index d7e9f3d..21fd894 100644
  
              if(pin_states[i].debounce > 0 && pin_states[i].debounce < INPUT_DEBOUNCE_TICKS) {
                  is_changing = true;
+diff --git a/applications/services/region/region.c b/applications/services/region/region.c
+index bed676f..1e8951c 100644
+--- a/applications/services/region/region.c
++++ b/applications/services/region/region.c
+@@ -135,6 +135,15 @@ int32_t region_on_system_start(void* p) {
+         return 0;
+     }
+ 
++#ifdef FLIPPER_EMULATOR
++    /* Emulator: skip loading the dynamic region file. It reads from internal
++     * storage (LittleFS on flash), which is not backed by a real formatted
++     * filesystem in the emulator and stalls storage_common_stat(). The firmware
++     * falls back to its built-in default region, which is fine for the emulator. */
++    UNUSED(region_load_file);
++    return 0;
++#else
+     region_load_file(NULL);
+     return 0;
++#endif
+ }
+diff --git a/applications/services/storage/storage_processing.c b/applications/services/storage/storage_processing.c
+index 7a32805..3abad26 100644
+--- a/applications/services/storage/storage_processing.c
++++ b/applications/services/storage/storage_processing.c
+@@ -79,6 +79,16 @@ static FS_Error storage_get_data(Storage* app, FuriString* path, StorageData** s
+             type = ST_EXT;
+         }
+ 
++#ifdef FLIPPER_EMULATOR
++        /* Emulator: internal storage (LittleFS on flash) is not backed by a real
++         * filesystem. Any /int access must fail fast with FSE_NOT_READY so the
++         * firmware falls back to defaults instead of stalling in the storage
++         * service (the ST_INT StorageData has no fs_api). */
++        if(type != ST_EXT) {
++            return FSE_NOT_READY;
++        }
++#endif
++
+         furi_assert(type == ST_EXT);
+ 
+         if(storage_data_status(&app->storage[type]) != StorageStatusOK) {
+diff --git a/targets/f7/furi_hal/furi_hal_bt.c b/targets/f7/furi_hal/furi_hal_bt.c
+index f1881f9..009d705 100644
+--- a/targets/f7/furi_hal/furi_hal_bt.c
++++ b/targets/f7/furi_hal/furi_hal_bt.c
+@@ -128,7 +128,17 @@ bool furi_hal_bt_start_radio_stack(void) {
+ 
+     furi_hal_bt_unlock_core2();
+ 
++#ifdef FLIPPER_EMULATOR
++    /* Emulator: Core2 (BLE M0+) is not emulated, so the radio stack never
++     * starts (res == false). gap_extra_beacon_init() would then send an SHCI
++     * command over IPCC to the absent Core2 and block in HW_IPCC_SYS_SendCmd
++     * until its 33s timeout -> furi_crash. Skip it when the stack isn't up. */
++    if(res) {
++        gap_extra_beacon_init();
++    }
++#else
+     gap_extra_beacon_init();
++#endif
+     return res;
+ }
+ 
 diff --git a/targets/f7/furi_hal/furi_hal_power.c b/targets/f7/furi_hal/furi_hal_power.c
 index fe5c0cf..46ee9e8 100644
 --- a/targets/f7/furi_hal/furi_hal_power.c
@@ -113,3 +176,23 @@ index 1521927..82c46d1 100644
  }
  
  static inline uint8_t sd_spi_read_byte(void) {
+diff --git a/targets/f7/furi_hal/furi_hal_spi.c b/targets/f7/furi_hal/furi_hal_spi.c
+index 9997d27..20bfac7 100644
+--- a/targets/f7/furi_hal/furi_hal_spi.c
++++ b/targets/f7/furi_hal/furi_hal_spi.c
+@@ -201,6 +201,15 @@ bool furi_hal_spi_bus_trx_dma(
+     furi_check(handle->bus->current_handle == handle);
+     furi_check(size > 0);
+ 
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: the DMA-complete interrupt path (waiting on the
++     * spi_dma_completed semaphore) depends on the SPI<->DMA request wiring and
++     * the DMA transfer-complete IRQ, which are not modelled in Renode. That
++     * makes the semaphore time out and furi_check() crash on SD block reads.
++     * The polling (non-DMA) transfer works fine, so always use it. */
++    return furi_hal_spi_bus_trx(handle, tx_buffer, rx_buffer, size, timeout_ms);
++#endif
++
+     // If scheduler is not running, use blocking mode
+     if(!furi_kernel_is_running()) {
+         return furi_hal_spi_bus_trx(handle, tx_buffer, rx_buffer, size, timeout_ms);

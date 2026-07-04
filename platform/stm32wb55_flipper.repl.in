@@ -190,18 +190,24 @@ i2c3: I2C.STM32F7_I2C @ sysbus 0x40005C00
 timer1: Timers.STM32_Timer @ sysbus 0x40012C00
     frequency: 64000000
     initialLimit: 0xFFFF
+    // WB55 NVIC: BRK=24, UP/TIM16=25, TRG_COM/TIM17=26, CC=27
+    [BreakInterrupt, UpdateInterrupt, TriggerInterrupt, CommutationInterrupt] -> nvic@[24, 25, 26, 26]
+    CaptureCompareInterrupt -> nvic@27
 
 timer2: Timers.STM32_Timer @ sysbus 0x40000000
     frequency: 64000000
     initialLimit: 0xFFFFFFFF
+    -> nvic@28   // TIM2_IRQn
 
 timer16: Timers.STM32_Timer @ sysbus 0x40014400
     frequency: 64000000
     initialLimit: 0xFFFF
+    -> nvic@25   // TIM1_UP_TIM16_IRQn (shared)
 
 timer17: Timers.STM32_Timer @ sysbus 0x40014800
     frequency: 64000000
     initialLimit: 0xFFFF
+    -> nvic@26   // TIM1_TRG_COM_TIM17_IRQn (shared)
 
 // ─── LPTIM1 (tickless idle) ────────────────────────────────────────────────
 
