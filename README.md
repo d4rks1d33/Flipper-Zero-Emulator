@@ -37,6 +37,9 @@ Use it to develop and test firmware / FAP apps, or to inspect what the Flipper
 <div align="center">
   <img src="assets/Screenshots/Boot2.png" width="90%" /><br />
 </div>
+<div align="center">
+  <img src="assets/Screenshots/Boot3.png" width="90%" /><br />
+</div>
 
 ## Table of contents
 
