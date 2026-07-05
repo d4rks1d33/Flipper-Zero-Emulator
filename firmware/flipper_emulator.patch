@@ -86,6 +86,44 @@ index f1881f9..009d705 100644
      return res;
  }
  
+diff --git a/targets/f7/furi_hal/furi_hal_i2c.c b/targets/f7/furi_hal/furi_hal_i2c.c
+index 7eb9b49..ed712f1 100644
+--- a/targets/f7/furi_hal/furi_hal_i2c.c
++++ b/targets/f7/furi_hal/furi_hal_i2c.c
+@@ -52,6 +52,25 @@ void furi_hal_i2c_release(const FuriHalI2cBusHandle* handle) {
+ 
+ static bool
+     furi_hal_i2c_wait_for_idle(I2C_TypeDef* i2c, FuriHalI2cBegin begin, FuriHalCortexTimer timer) {
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: there is no real I2C bus under functional emulation, so
++     * the STM32 I2C peripheral never raises the TXIS/RXNE/STOPF/TC flags the
++     * transfer loop polls for. Without this guard every access to the battery
++     * gauge (bq27220 @0xAA on I2C1) and the LED driver (lp5562) spins in a busy
++     * wait until its DWT timeout, and the power service repeats that poll
++     * forever. That starves the FreeRTOS idle path so SysTick / the software
++     * timer daemon never advance and the idle dolphin animation freezes.
++     *
++     * Failing the very first step of every transaction turns each I2C read/write
++     * into a fast, graceful failure (the drivers already handle it: the gauge
++     * reports defaults, the LED driver no-ops). Boot is much faster and the
++     * animation timer ticks. This is the entry point of furi_hal_i2c_transaction
++     * so the remaining helpers stay compiled but are simply never reached. */
++    UNUSED(i2c);
++    UNUSED(begin);
++    UNUSED(timer);
++    return false;
++#else
+     do {
+         if(furi_hal_cortex_timer_is_expired(timer)) {
+             return false;
+@@ -60,6 +79,7 @@ static bool
+     // Only check if the bus is busy if starting a new transaction, if not we already control the bus
+ 
+     return true;
++#endif
+ }
+ 
+ static bool
 diff --git a/targets/f7/furi_hal/furi_hal_power.c b/targets/f7/furi_hal/furi_hal_power.c
 index fe5c0cf..46ee9e8 100644
 --- a/targets/f7/furi_hal/furi_hal_power.c

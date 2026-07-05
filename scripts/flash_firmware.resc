@@ -42,7 +42,7 @@ machine LoadPlatformDescriptionFromString
 display: Video.ST7567 @ none
 
 sdcard: SPI.FlipperSdCard @ none
-    imageFile: "/opt/d4rks1d3-PCFW/for-rollback/fable apps/flipper-emulator-3/flipper-emulator/sdcard/sdcard.img"
+    imageFile: "/opt/d4rks1d3-PCFW/for-rollback/fable apps/flipper-emulator-4/flipper-emulator/sdcard/sdcard.img"
     capacity: 0x800000000
 
 spi2mux: SPI.Spi2Router @ spi2

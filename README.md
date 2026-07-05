@@ -16,16 +16,18 @@ Use it to develop and test firmware / FAP apps, or to inspect what the Flipper
 > ```
 > On Windows, see [§ Windows step-by-step](#windows-step-by-step).
 
-> **v3.0 status:** the real firmware **boots to the desktop**, the **SD card
-> mounts**, and the firmware **resources** (NFC/IR/SubGHz databases, app FAPs,
-> dolphin animations) are laid onto the SD, so the **"No SD card / database"
-> screen is gone** — the dolphin shows a normal idle animation (verified via the
-> firmware's own log). `setup.sh` auto-provisions a 32 GB FAT32 SD with resources
-> from `firmware/resources.ths` (needs the `heatshrink2` pip package, installed by
-> `install.sh`). Boot takes ~60–100 s (slow due to emulated I2C timeouts). It
-> requires the **RELEASE-mode**, `-DFLIPPER_EMULATOR`-patched firmware included in
-> `firmware/`. Button → app-menu navigation is the one thing still being finalized.
-> Full details are in **`DIAGNOSIS.md`** (§10 is the v3.0 resources fix).
+> **v3.1 status:** the real firmware **boots to the desktop**, the **SD card
+> mounts**, the firmware **resources** (NFC/IR/SubGHz databases, app FAPs, dolphin
+> animations) are laid onto the SD (so the **"No SD card / database" screen is
+> gone**), and the **idle dolphin now animates** — an emulator patch fast-fails the
+> un-emulated I2C bus so the FreeRTOS tick / software-timer daemon are no longer
+> starved by battery-gauge busy-waits (this also makes boot much faster). All
+> verified via the firmware's own log. `setup.sh` auto-provisions a 32 GB FAT32 SD
+> with resources from `firmware/resources.ths` (needs the `heatshrink2` pip
+> package, installed by `install.sh`). It requires the **RELEASE-mode**,
+> `-DFLIPPER_EMULATOR`-patched firmware included in `firmware/`. Button → app-menu
+> navigation is the one thing still being finalized. Full details are in
+> **`DIAGNOSIS.md`** (§11 = animation/I2C fix, §10 = resources fix).
 
 ---
 

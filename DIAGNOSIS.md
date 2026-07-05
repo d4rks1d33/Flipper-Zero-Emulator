@@ -5,7 +5,15 @@ the UI" problem and the fixes applied. Everything here was verified with CPU
 hooks on the real firmware and `arm-none-eabi-addr2line` against
 `dist/f7-D/flipper-z-f7-firmware-local.elf`.
 
-> **STATUS v3.0 — DESKTOP BOOTS + SD MOUNTS + RESOURCES LOAD (no "No database").**
+> **STATUS v3.1 — DOLPHIN ANIMATES + FASTER BOOT (I2C busy-wait fixed).**
+> The idle dolphin animation now **plays** (frames advance) and boot is much
+> faster. Root cause was the un-emulated I2C bus: every battery-gauge / LED-driver
+> access spun in a busy-wait until its timeout and the power service repeated that
+> poll forever, which starved the FreeRTOS idle path so SysTick / the software
+> timer daemon never advanced and the animation timer never fired. An emulator
+> patch fast-fails I2C transactions. See §11.
+>
+> **v3.0 — DESKTOP BOOTS + SD MOUNTS + RESOURCES LOAD (no "No database").**
 > The real firmware boots to the desktop main scene, the **SD card mounts
 > successfully** (`[StorageExt] card mounted`), the firmware **resources**
 > (NFC/IR/SubGHz databases, app FAPs, dolphin animations) are on the SD, and the
@@ -16,8 +24,7 @@ hooks on the real firmware and `arm-none-eabi-addr2line` against
 > **Remaining item:** button → app-menu navigation (input reaches the GUI; opening
 > the app menu is still being finalized — see §9.5).
 >
-> **To boot it:** ~60–100 s wall-clock (slow due to emulated I2C timeouts for the
-> un-emulated battery gauge). Requires the RELEASE-mode (`DEBUG=0`),
+> **To boot it:** requires the RELEASE-mode (`DEBUG=0`),
 > `-DFLIPPER_EMULATOR`-patched firmware (§9.1).
 
 ---
@@ -474,3 +481,66 @@ TDR (`0x40013828`) do **not** fire — the socket terminal is the reliable path.
   (`filter="data"` on py≥3.12); safe fallback.
 - `firmware/resources.ths` — **new**, shipped copy of the release resources.
 - `install.sh` — adds `heatshrink2` to the pip install list.
+
+## 11. SESSION v3.1 — DOLPHIN ANIMATION FROZEN → I2C BUSY-WAIT FIX
+
+### 11.1 Symptom
+
+The desktop rendered but the **idle dolphin was static** — the animation never
+advanced its frames, even though input reached the GUI and the display updated.
+
+### 11.2 How the animation is driven (firmware source)
+
+The idle animation is advanced by a **periodic `FuriTimer`** owned by
+`BubbleAnimationView`:
+
+- `bubble_animation_view.c:318` — `furi_timer_alloc(bubble_animation_timer_callback, FuriTimerTypePeriodic, view)`.
+- `bubble_animation_timer_callback` (`:233`) calls `bubble_animation_next_frame` then `view_commit_model` (redraw).
+- Timer period = `1000 / frame_rate` ms (tick = 1 ms).
+
+`FuriTimer` is a FreeRTOS **software timer**, serviced by the timer-daemon task,
+which is scheduled off the **SysTick 1 kHz** tick (`SysTick_Handler` →
+`furi_hal_os_tick` → `xPortSysTickHandler`). If SysTick / the tick never advance,
+the daemon never runs and the animation freezes.
+
+### 11.3 Root cause (verified with CPU PC sampling)
+
+Hooking `bubble_animation_timer_callback` showed **0 calls**. Hooking
+`SysTick_Handler` showed **0 calls** — yet the firmware booted. Sampling `cpu PC`
+at several points during a paused run showed the CPU was **always inside
+`furi_hal_i2c_transaction` (~0x08005a50–0x08005a82)** — a busy-wait polling the
+I2C ISR register.
+
+There is no real I2C bus under functional emulation, so the STM32 I2C peripheral
+(`i2c1` @0x40005400, where the **bq27220** battery gauge lives @0xAA, plus the
+**lp5562** LED driver) never raises the TXIS/RXNE/STOPF/TC flags the transfer
+loop polls for. Every gauge/LED access spun until its DWT timeout, and the power
+service repeats that poll forever (`[Gauge] bq27220_read_word failed` × hundreds).
+That perpetual busy-wait starved the FreeRTOS idle path, so SysTick / the timer
+daemon never advanced → the animation timer never fired.
+
+### 11.4 The fix (firmware patch)
+
+`targets/f7/furi_hal/furi_hal_i2c.c` — `furi_hal_i2c_wait_for_idle()` (the first
+step of every `furi_hal_i2c_transaction`) returns `false` immediately under
+`#ifdef FLIPPER_EMULATOR`. Every I2C read/write becomes a **fast, graceful
+failure**; the drivers already handle it (the gauge reports defaults, the LED
+driver no-ops). The remaining helpers stay compiled (still referenced in the
+non-taken path) so there are no `-Werror=unused-function` errors.
+
+### 11.5 Verified result
+
+- Hook on `bubble_animation_timer_callback` now fires **~60 times in ~40 s** →
+  the dolphin animation advances frames.
+- Boot is much faster; `card mounted`, `Startup complete`, and a normal
+  `AnimationManager Select 'L1_*'` still occur.
+- The `bq27220_read_word failed` log lines remain (the gauge is not emulated) but
+  each now fails **instantly** instead of busy-waiting.
+
+### 11.6 Files changed this session (v3.1)
+
+- `targets/f7/furi_hal/furi_hal_i2c.c` — `FLIPPER_EMULATOR` fast-fail in
+  `furi_hal_i2c_wait_for_idle` (8th patched file; `firmware/flipper_emulator.patch`
+  regenerated, now 236 lines / 8 files).
+- `firmware/flipper-z-f7-full-EMULATOR-patched.bin` — rebuilt RELEASE with the
+  I2C patch.
