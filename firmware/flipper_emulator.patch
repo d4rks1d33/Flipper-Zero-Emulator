@@ -1,8 +1,178 @@
+diff --git a/applications/services/desktop/views/desktop_view_main.c b/applications/services/desktop/views/desktop_view_main.c
+index 87f12d84..dd1305a4 100644
+--- a/applications/services/desktop/views/desktop_view_main.c
++++ b/applications/services/desktop/views/desktop_view_main.c
+@@ -8,6 +8,10 @@
+ 
+ #include "desktop_view_main.h"
+ 
++#ifdef FLIPPER_EMULATOR
++#include <loader/loader.h>
++#endif
++
+ struct DesktopMainView {
+     View* view;
+     DesktopMainViewCallback callback;
+@@ -49,7 +53,19 @@ bool desktop_main_input_callback(InputEvent* event, void* context) {
+ 
+     DesktopMainView* main_view = context;
+ 
++    FURI_LOG_E("DesktopMain", "INPUT_CB key=%d type=%d", event->key, event->type);
++
+     if(main_view->dummy_mode == false) {
++#ifdef FLIPPER_EMULATOR
++        /* Emulator: accept InputTypePress on OK to open the menu immediately,
++         * matching the input_injector's Press-then-Release sequence. */
++        if(event->type == InputTypePress && event->key == InputKeyOk) {
++            FURI_LOG_E("DesktopMain", "calling loader_show_menu");
++            loader_show_menu(furi_record_open(RECORD_LOADER));
++            furi_record_close(RECORD_LOADER);
++            return true;
++        }
++#endif
+         if(event->type == InputTypeShort) {
+             if(event->key == InputKeyOk) {
+                 main_view->callback(DesktopMainEventOpenMenu, main_view->context);
+diff --git a/applications/services/gui/gui.c b/applications/services/gui/gui.c
+index 24ea57bc..9a2f3156 100644
+--- a/applications/services/gui/gui.c
++++ b/applications/services/gui/gui.c
+@@ -47,6 +47,8 @@ void gui_input_events_callback(const void* value, void* ctx) {
+     furi_assert(ctx);
+ 
+     Gui* gui = ctx;
++    const InputEvent* ev = value;
++    FURI_LOG_E("GuiSrv", "INPUT_CB key=%d type=%d", ev->key, ev->type);
+ 
+     furi_message_queue_put(gui->input_queue, value, FuriWaitForever);
+     furi_thread_flags_set(gui->thread_id, GUI_THREAD_FLAG_INPUT);
+@@ -302,9 +304,21 @@ static void gui_input(Gui* gui, InputEvent* input_event) {
+         if(gui->lockdown) {
+             view_port = gui_view_port_find_enabled(gui->layers[GuiLayerDesktop]);
+         } else {
++#ifdef FLIPPER_EMULATOR
++            /* Emulator: give Fullscreen highest priority so the loader menu
++             * (open via loader_show_menu) receives navigation events.
++             * If no Fullscreen app is active, fall back to Desktop (bypass
++             * Window which is never used in this firmware). This ensures
++             * the idle desktop gets input when no app is running. */
++            view_port = gui_view_port_find_enabled(gui->layers[GuiLayerFullscreen]);
++            if(!view_port) view_port = gui_view_port_find_enabled(gui->layers[GuiLayerDesktop]);
++            if(!view_port) view_port = gui_view_port_find_enabled(gui->layers[GuiLayerWindow]);
++            if(!view_port) view_port = gui_view_port_find_enabled(gui->layers[GuiLayerDesktop]);
++#else
+             view_port = gui_view_port_find_enabled(gui->layers[GuiLayerFullscreen]);
+             if(!view_port) view_port = gui_view_port_find_enabled(gui->layers[GuiLayerWindow]);
+             if(!view_port) view_port = gui_view_port_find_enabled(gui->layers[GuiLayerDesktop]);
++#endif
+         }
+ 
+         if(!(gui->ongoing_input & ~key_bit) && input_event->type == InputTypePress) {
+@@ -312,6 +326,7 @@ static void gui_input(Gui* gui, InputEvent* input_event) {
+         }
+ 
+         if(view_port && view_port == gui->ongoing_input_view_port) {
++            FURI_LOG_E("GuiSrv", "INPUT_DISPATCH vp=%p key=%d type=%d", view_port, input_event->key, input_event->type);
+             view_port_input(view_port, input_event);
+         } else if(gui->ongoing_input_view_port && input_event->type == InputTypeRelease) {
+             FURI_LOG_D(
+@@ -553,23 +568,33 @@ int32_t gui_srv(void* p) {
+ 
+     furi_record_create(RECORD_GUI, gui);
+ 
++    FURI_LOG_E("GuiSrv", "SRV_STARTED");
++
+     while(1) {
++#ifdef FLIPPER_EMULATOR
++        uint32_t flags =
++            furi_thread_flags_wait(GUI_THREAD_FLAG_ALL, FuriFlagWaitAny, 50);
++        if(flags == (uint32_t)FuriStatusErrorTimeout) {
++            gui_redraw(gui);
++            continue;
++        }
++#else
+         uint32_t flags =
+             furi_thread_flags_wait(GUI_THREAD_FLAG_ALL, FuriFlagWaitAny, FuriWaitForever);
+-        // Process and dispatch input
++#endif
+         if(flags & GUI_THREAD_FLAG_INPUT) {
+-            // Process till queue become empty
++            FURI_LOG_E("GuiSrv", "FLAG_INPUT flags=0x%lx", flags);
+             InputEvent input_event;
+             while(furi_message_queue_get(gui->input_queue, &input_event, 0) == FuriStatusOk) {
++                FURI_LOG_E("GuiSrv", "SRV_PROCESS key=%d type=%d", input_event.key, input_event.type);
+                 gui_input(gui, &input_event);
+             }
+         }
+-        // Process and dispatch draw call
+         if(flags & GUI_THREAD_FLAG_DRAW) {
+-            // Clear flags that arrived on input step
+             furi_thread_flags_clear(GUI_THREAD_FLAG_DRAW);
+             gui_redraw(gui);
+         }
+-#ifdef FLIPPER_EMULATOR
+-        else if(flags == 0) {
+-            gui_redraw(gui);
+-        }
+-#endif
+     }
+ 
+     return 0;
+diff --git a/applications/services/gui/view_dispatcher.c b/applications/services/gui/view_dispatcher.c
+index e85ff2b2..7f839462 100644
+--- a/applications/services/gui/view_dispatcher.c
++++ b/applications/services/gui/view_dispatcher.c
+@@ -110,8 +110,14 @@ FuriEventLoop* view_dispatcher_get_event_loop(ViewDispatcher* view_dispatcher) {
+ void view_dispatcher_run(ViewDispatcher* view_dispatcher) {
+     furi_check(view_dispatcher);
+ 
++#ifdef FLIPPER_EMULATOR
++    uint32_t tick_period = 10;
++    if(view_dispatcher->tick_period > 0 && view_dispatcher->tick_period < tick_period)
++        tick_period = view_dispatcher->tick_period;
++#else
+     uint32_t tick_period = view_dispatcher->tick_period == 0 ? FuriWaitForever :
+                                                                view_dispatcher->tick_period;
++#endif
+ 
+     if(view_dispatcher->is_event_loop_owned)
+         furi_event_loop_tick_set(
+@@ -308,6 +314,16 @@ void view_dispatcher_handle_input(ViewDispatcher* view_dispatcher, InputEvent* e
+ 
+ void view_dispatcher_handle_tick_event(void* context) {
+     ViewDispatcher* view_dispatcher = context;
++#ifdef FLIPPER_EMULATOR
++    InputEvent input;
++    while(furi_message_queue_get(view_dispatcher->input_queue, &input, 0) == FuriStatusOk) {
++        view_dispatcher_handle_input(view_dispatcher, &input);
++    }
++    uint32_t custom_event;
++    while(furi_message_queue_get(view_dispatcher->event_queue, &custom_event, 0) == FuriStatusOk) {
++        view_dispatcher_handle_custom_event(view_dispatcher, custom_event);
++    }
++#endif
+     if(view_dispatcher->tick_event_callback) {
+         view_dispatcher->tick_event_callback(view_dispatcher->event_context);
+     }
 diff --git a/applications/services/input/input.c b/applications/services/input/input.c
-index d7e9f3d..21fd894 100644
+index d7e9f3d3..9bf001fb 100644
 --- a/applications/services/input/input.c
 +++ b/applications/services/input/input.c
-@@ -117,11 +117,20 @@ int32_t input_srv(void* p) {
+@@ -84,6 +84,8 @@ const char* input_get_type_name(InputType type) {
+ int32_t input_srv(void* p) {
+     UNUSED(p);
+ 
++    FURI_LOG_E("InputSrv", "SRV_STARTED");
++
+     const FuriThreadId thread_id = furi_thread_get_current_id();
+     FuriPubSub* event_pubsub = furi_pubsub_alloc();
+     uint32_t counter = 1;
+@@ -113,19 +115,31 @@ int32_t input_srv(void* p) {
+         pin_states[i].press_counter = 0;
+     }
+ 
++    FURI_LOG_E("InputSrv", "ENTERING_LOOP");
+     while(1) {
          bool is_changing = false;
          for(size_t i = 0; i < input_pins_count; i++) {
              bool state = GPIO_Read(pin_states[i]);
@@ -23,8 +193,152 @@ index d7e9f3d..21fd894 100644
  
              if(pin_states[i].debounce > 0 && pin_states[i].debounce < INPUT_DEBOUNCE_TICKS) {
                  is_changing = true;
+             } else if(pin_states[i].state != state) {
++                FURI_LOG_E("InputSrv", "STATE_CHANGE pin=%zu old=%d new=%d key=%d",
++                    i, pin_states[i].state, state, pin_states[i].pin->key);
+                 pin_states[i].state = state;
+ 
+                 // Common state info
+@@ -152,6 +166,8 @@ int32_t input_srv(void* p) {
+ 
+                 // Send Press/Release event
+                 event.type = pin_states[i].state ? InputTypePress : InputTypeRelease;
++                FURI_LOG_E("InputSrv", "PUBLISH key=%d type=%d pin=%zu state=%d",
++                    event.key, event.type, i, pin_states[i].state);
+                furi_pubsub_publish(event_pubsub, &event);
+            }
+        }
+ 
+@@ -173,6 +189,12 @@ int32_t input_srv(void* p) {
+         if(is_changing) {
+             furi_delay_tick(1);
+         } else {
++#ifdef FLIPPER_EMULATOR
++            furi_thread_flags_wait(INPUT_THREAD_FLAG_ISR, FuriFlagWaitAny, INPUT_DEBOUNCE_TICKS / 2);
++#else
+             furi_thread_flags_wait(INPUT_THREAD_FLAG_ISR, FuriFlagWaitAny, FuriWaitForever);
++#endif
+         }
+     }
+ 
+diff --git a/applications/services/loader/loader_menu.c b/applications/services/loader/loader_menu.c
+index dc1b673d..6c7f115e 100644
+--- a/applications/services/loader/loader_menu.c
++++ b/applications/services/loader/loader_menu.c
+@@ -53,31 +53,47 @@ static void loader_menu_start(const char* name) {
+     furi_record_close(RECORD_LOADER);
+ }
+ 
++static void loader_menu_close(LoaderMenuApp* app) {
++    view_dispatcher_stop(app->view_dispatcher);
++}
++
+ static void loader_menu_apps_callback(void* context, uint32_t index) {
+-    UNUSED(context);
++    LoaderMenuApp* app = context;
+     const char* name = FLIPPER_APPS[index].name;
+     loader_menu_start(name);
++#ifdef FLIPPER_EMULATOR
++    loader_menu_close(app);
++#endif
+ }
+ 
+ static void loader_menu_external_apps_callback(void* context, uint32_t index) {
+-    UNUSED(context);
++    LoaderMenuApp* app = context;
+     const char* path = FLIPPER_EXTERNAL_APPS[index].name;
+     loader_menu_start(path);
++#ifdef FLIPPER_EMULATOR
++    loader_menu_close(app);
++#endif
+ }
+ 
+ static void loader_menu_applications_callback(void* context, uint32_t index) {
+     UNUSED(index);
+-    UNUSED(context);
++    LoaderMenuApp* app = context;
+     const char* name = LOADER_APPLICATIONS_NAME;
+     loader_menu_start(name);
++#ifdef FLIPPER_EMULATOR
++    loader_menu_close(app);
++#endif
+ }
+ 
+ static void
+     loader_menu_settings_menu_callback(void* context, InputType input_type, uint32_t index) {
+-    UNUSED(context);
++    LoaderMenuApp* app = context;
+     if(input_type == InputTypeShort) {
+         const char* name = FLIPPER_SETTINGS_APPS[index].name;
+         loader_menu_start(name);
++#ifdef FLIPPER_EMULATOR
++        loader_menu_close(app);
++#endif
+     } else if(input_type == InputTypeLong) {
+         const char* name = FLIPPER_SETTINGS_APPS[index].name;
+         archive_favorites_handle_setting_pin_unpin(name, NULL);
+@@ -101,6 +117,7 @@ static uint32_t loader_menu_exit(void* context) {
+ }
+ 
+ static void loader_menu_build_menu(LoaderMenuApp* app, LoaderMenu* menu) {
++    UNUSED(menu);
+     size_t i;
+ 
+     for(i = 0; i < FLIPPER_EXTERNAL_APPS_COUNT; i++) {
+@@ -110,7 +127,7 @@ static void loader_menu_build_menu(LoaderMenuApp* app, LoaderMenu* menu) {
+             FLIPPER_EXTERNAL_APPS[i].icon,
+             i,
+             loader_menu_external_apps_callback,
+-            (void*)menu);
++            (void*)app);
+     }
+ 
+     for(i = 0; i < FLIPPER_APPS_COUNT; i++) {
+@@ -120,7 +137,7 @@ static void loader_menu_build_menu(LoaderMenuApp* app, LoaderMenu* menu) {
+             FLIPPER_APPS[i].icon,
+             i,
+             loader_menu_apps_callback,
+-            (void*)menu);
++            (void*)app);
+     }
+     menu_add_item(
+         app->primary_menu, "Settings", &A_Settings_14, i++, loader_menu_switch_to_settings, app);
+@@ -130,17 +147,18 @@ static void loader_menu_build_menu(LoaderMenuApp* app, LoaderMenu* menu) {
+         &A_Plugins_14,
+         i++,
+         loader_menu_applications_callback,
+-        (void*)menu);
++        (void*)app);
+ }
+ 
+ static void loader_menu_build_submenu(LoaderMenuApp* app, LoaderMenu* loader_menu) {
++    UNUSED(loader_menu);
+     for(size_t i = 0; i < FLIPPER_SETTINGS_APPS_COUNT; i++) {
+         submenu_add_item_ex(
+             app->settings_menu,
+             FLIPPER_SETTINGS_APPS[i].name,
+             i,
+             loader_menu_settings_menu_callback,
+-            loader_menu);
++            app);
+     }
+ }
+ 
+@@ -185,9 +203,12 @@ static int32_t loader_menu_thread(void* p) {
+     LoaderMenu* loader_menu = p;
+     furi_assert(loader_menu);
+ 
++    FURI_LOG_E("LoaderMenu", "thread started");
+     LoaderMenuApp* app = loader_menu_app_alloc(loader_menu);
++    FURI_LOG_E("LoaderMenu", "app alloc done, attaching to GUI");
+ 
+     view_dispatcher_attach_to_gui(app->view_dispatcher, app->gui, ViewDispatcherTypeFullscreen);
++    FURI_LOG_E("LoaderMenu", "attached, entering run loop");
+     view_dispatcher_run(app->view_dispatcher);
+ 
+     if(loader_menu->closed_cb) {
 diff --git a/applications/services/region/region.c b/applications/services/region/region.c
-index bed676f..1e8951c 100644
+index bed676f9..1e8951c3 100644
 --- a/applications/services/region/region.c
 +++ b/applications/services/region/region.c
 @@ -135,6 +135,15 @@ int32_t region_on_system_start(void* p) {
@@ -44,7 +358,7 @@ index bed676f..1e8951c 100644
 +#endif
  }
 diff --git a/applications/services/storage/storage_processing.c b/applications/services/storage/storage_processing.c
-index 7a32805..3abad26 100644
+index 7a328051..3abad26e 100644
 --- a/applications/services/storage/storage_processing.c
 +++ b/applications/services/storage/storage_processing.c
 @@ -79,6 +79,16 @@ static FS_Error storage_get_data(Storage* app, FuriString* path, StorageData** s
@@ -64,8 +378,66 @@ index 7a32805..3abad26 100644
          furi_assert(type == ST_EXT);
  
          if(storage_data_status(&app->storage[type]) != StorageStatusOK) {
+diff --git a/firmware.scons b/firmware.scons
+index e7378f95..e6fdb190 100644
+--- a/firmware.scons
++++ b/firmware.scons
+@@ -95,6 +95,7 @@ else:
+         ],
+     )
+ env.AppendUnique(CPPDEFINES=["FW_CFG_${FIRMWARE_APP_SET}"])
++env.AppendUnique(CPPDEFINES=["FLIPPER_EMULATOR"])
+ 
+ env.ConfigureForTarget(env.subst("${TARGET_HW}"))
+ 
+diff --git a/furi/core/check.c b/furi/core/check.c
+index ee8ee4af..eb01e23e 100644
+--- a/furi/core/check.c
++++ b/furi/core/check.c
+@@ -162,6 +162,13 @@ FURI_NORETURN void __furi_crash_implementation(void) {
+     // Check if debug enabled by DAP
+     // https://developer.arm.com/documentation/ddi0403/d/Debug-Architecture/ARMv7-M-Debug/Debug-register-support-in-the-SCS/Debug-Halting-Control-and-Status-Register--DHCSR?lang=en
+     bool debug = CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk;
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: never reboot on crash — just halt so the user can see
++     * the error message in the USART log before the emulator pauses. */
++    furi_log_puts("\r\nSystem halted. Connect debugger for more info\r\n");
++    furi_log_puts("\033[0m\r\n");
++    RESTORE_REGISTERS_AND_HALT_MCU(debug);
++#else
+ #ifdef FURI_NDEBUG
+     if(debug) {
+ #endif
+@@ -181,6 +188,7 @@ FURI_NORETURN void __furi_crash_implementation(void) {
+         furi_log_puts("\033[0m\r\n");
+         furi_hal_power_reset();
+     }
++#endif
+ #endif
+     __builtin_unreachable();
+ }
+diff --git a/targets/f7/furi_hal/furi_hal.c b/targets/f7/furi_hal/furi_hal.c
+index 7424b5e8..f21f5743 100644
+--- a/targets/f7/furi_hal/furi_hal.c
++++ b/targets/f7/furi_hal/furi_hal.c
+@@ -59,6 +59,15 @@ void furi_hal_init(void) {
+     furi_hal_nfc_init();
+     furi_hal_rfid_init();
+ #endif
++
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: configure USART1 at 230400 baud as the log output port.
++     * On real hardware this is done by the FUS / radio stack or CLI, but in
++     * the emulator no such configuration happens automatically. Without this,
++     * FURI_LOG_E/W/I output is silently dropped because no tx handler is
++     * registered. */
++    furi_hal_serial_control_set_logging_config(FuriHalSerialIdUsart, 230400);
++#endif
+ }
+ 
+ void furi_hal_switch(void* address) {
 diff --git a/targets/f7/furi_hal/furi_hal_bt.c b/targets/f7/furi_hal/furi_hal_bt.c
-index f1881f9..009d705 100644
+index f1881f94..009d705a 100644
 --- a/targets/f7/furi_hal/furi_hal_bt.c
 +++ b/targets/f7/furi_hal/furi_hal_bt.c
 @@ -128,7 +128,17 @@ bool furi_hal_bt_start_radio_stack(void) {
@@ -86,8 +458,27 @@ index f1881f9..009d705 100644
      return res;
  }
  
+diff --git a/targets/f7/furi_hal/furi_hal_gpio.c b/targets/f7/furi_hal/furi_hal_gpio.c
+index 0104dd89..7ce6c6ad 100644
+--- a/targets/f7/furi_hal/furi_hal_gpio.c
++++ b/targets/f7/furi_hal/furi_hal_gpio.c
+@@ -200,7 +200,14 @@ void furi_hal_gpio_add_int_callback(const GpioPin* gpio, GpioExtiCallback cb, vo
+     FURI_CRITICAL_ENTER();
+ 
+     uint8_t pin_num = furi_hal_gpio_get_pin_num(gpio);
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: on some reset paths (NVIC_SystemReset) the SRAM retains
++     * stale callback pointers from the previous boot. Silently replace rather
++     * than crashing with furi_check. */
++    gpio_interrupt[pin_num].callback = NULL;
++#else
+     furi_check(gpio_interrupt[pin_num].callback == NULL);
++#endif
+     gpio_interrupt[pin_num].callback = cb;
+     gpio_interrupt[pin_num].context = ctx;
+ 
 diff --git a/targets/f7/furi_hal/furi_hal_i2c.c b/targets/f7/furi_hal/furi_hal_i2c.c
-index 7eb9b49..ed712f1 100644
+index 7eb9b492..ed712f18 100644
 --- a/targets/f7/furi_hal/furi_hal_i2c.c
 +++ b/targets/f7/furi_hal/furi_hal_i2c.c
 @@ -52,6 +52,25 @@ void furi_hal_i2c_release(const FuriHalI2cBusHandle* handle) {
@@ -125,7 +516,7 @@ index 7eb9b49..ed712f1 100644
  
  static bool
 diff --git a/targets/f7/furi_hal/furi_hal_power.c b/targets/f7/furi_hal/furi_hal_power.c
-index fe5c0cf..46ee9e8 100644
+index fe5c0cf1..be1c2ebe 100644
 --- a/targets/f7/furi_hal/furi_hal_power.c
 +++ b/targets/f7/furi_hal/furi_hal_power.c
 @@ -70,6 +70,14 @@ void furi_hal_power_init(void) {
@@ -169,8 +560,25 @@ index fe5c0cf..46ee9e8 100644
  }
  
  static inline bool furi_hal_power_deep_sleep_available(void) {
+@@ -338,7 +357,16 @@ void furi_hal_power_off(void) {
+ }
+ 
+ FURI_NORETURN void furi_hal_power_reset(void) {
++#ifdef FLIPPER_EMULATOR
++    /* Emulator patch: NVIC_SystemReset() would reboot the emulator, losing
++     * all USART output. Spin forever so the user can see crash logs. */
++    __disable_irq();
++    while(1) {
++        __WFI();
++    }
++#else
+     NVIC_SystemReset();
++#endif
+ }
+ 
+ bool furi_hal_power_enable_otg(void) {
 diff --git a/targets/f7/furi_hal/furi_hal_sd.c b/targets/f7/furi_hal/furi_hal_sd.c
-index 1521927..82c46d1 100644
+index 15219273..82c46d14 100644
 --- a/targets/f7/furi_hal/furi_hal_sd.c
 +++ b/targets/f7/furi_hal/furi_hal_sd.c
 @@ -217,6 +217,14 @@ static inline void sd_spi_deselect_card(void) {
@@ -215,7 +623,7 @@ index 1521927..82c46d1 100644
  
  static inline uint8_t sd_spi_read_byte(void) {
 diff --git a/targets/f7/furi_hal/furi_hal_spi.c b/targets/f7/furi_hal/furi_hal_spi.c
-index 9997d27..20bfac7 100644
+index 9997d278..20bfac7a 100644
 --- a/targets/f7/furi_hal/furi_hal_spi.c
 +++ b/targets/f7/furi_hal/furi_hal_spi.c
 @@ -201,6 +201,15 @@ bool furi_hal_spi_bus_trx_dma(

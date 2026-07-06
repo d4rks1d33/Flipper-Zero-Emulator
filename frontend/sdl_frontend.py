@@ -66,11 +66,16 @@ BUTTONS = {
 # SDL keycode -> button name
 KEYMAP = {
     sdl2.SDLK_UP: "up",
+    sdl2.SDLK_w: "up",
     sdl2.SDLK_DOWN: "down",
+    sdl2.SDLK_s: "down",
     sdl2.SDLK_LEFT: "left",
+    sdl2.SDLK_a: "left",
     sdl2.SDLK_RIGHT: "right",
+    sdl2.SDLK_d: "right",
     sdl2.SDLK_RETURN: "ok",
     sdl2.SDLK_KP_ENTER: "ok",
+    sdl2.SDLK_SPACE: "ok",
     sdl2.SDLK_BACKSPACE: "back",
     sdl2.SDLK_ESCAPE: "back",
 }
@@ -129,7 +134,16 @@ class RenodeMonitor:
         else:
             level = pressed       # pressed => high
         val = "true" if level else "false"
-        self.send(f"{port} OnGPIO {pin} {val}")
+        
+        # 1. Set the GPIO pin state (for polling)
+        gpio_cmd = f"{port} OnGPIO {pin} {val}"
+        # 2. Force the EXTI trigger (for interrupts), bypassing the GPIO port mapping
+        exti_cmd = f"exti OnGPIO {pin} {val}"
+        
+        print(f"DEBUG: Button {name} {'pressed' if pressed else 'released'} -> {gpio_cmd} AND {exti_cmd}")
+        self.send(gpio_cmd)
+        time.sleep(0.01)
+        self.send(exti_cmd)
 
 
 def load_framebuffer():

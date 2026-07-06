@@ -38,10 +38,10 @@ mkdir -p logs sdcard firmware
 # 32 GB FAT32 image with the standard Flipper folders if one doesn't exist yet.
 if [ ! -f sdcard/sdcard.img ]; then
     log "creating SD card image (32 GB sparse FAT32)..."
-    if python3 scripts/prepare_sdcard.py >/dev/null 2>&1; then
+    if python3 scripts/prepare_sdcard_2.py >/dev/null 2>&1; then
         log "SD card image ready: sdcard/sdcard.img"
     else
-        printf '\033[1;33m[setup]\033[0m could not auto-create SD image; run: python3 scripts/prepare_sdcard.py\n'
+        printf '\033[1;33m[setup]\033[0m could not auto-create SD image; run: python3 scripts/prepare_sdcard_2.py\n'
     fi
 fi
 

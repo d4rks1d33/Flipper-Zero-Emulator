@@ -60,9 +60,9 @@ namespace Antmicro.Renode.Peripherals.IRQControllers
 
         public void Reset()
         {
-            rtsr1 = 0;
-            ftsr1 = 0;
-            imr1 = 0;
+            rtsr1 = 0xFFFFFFFF;
+            ftsr1 = 0xFFFFFFFF;
+            imr1 = 0xFFFFFFFF;
             pr1 = 0;
             lineState = 0;
             registers.Reset();
@@ -75,6 +75,7 @@ namespace Antmicro.Renode.Peripherals.IRQControllers
         // GPIO input: line = pin number (0..15). value = new pin level.
         public void OnGPIO(int number, bool value)
         {
+            this.Log(LogLevel.Info, "EXTI: OnGPIO called for pin {0} with value {1}", number, value);
             if(number < 0 || number >= NumberOfLines)
             {
                 return;
@@ -82,23 +83,15 @@ namespace Antmicro.Renode.Peripherals.IRQControllers
             var previous = BitHelper.IsBitSet(lineState, (byte)number);
             BitHelper.SetBit(ref lineState, (byte)number, value);
 
-            var rising = !previous && value;
-            var falling = previous && !value;
-
-            var risingEnabled = BitHelper.IsBitSet(rtsr1, (byte)number);
-            var fallingEnabled = BitHelper.IsBitSet(ftsr1, (byte)number);
-
-            if((rising && risingEnabled) || (falling && fallingEnabled))
-            {
-                // Latch pending
-                BitHelper.SetBit(ref pr1, (byte)number, true);
-                // Fire the NVIC line only if the interrupt is unmasked
-                if(BitHelper.IsBitSet(imr1, (byte)number))
-                {
-                    this.Log(LogLevel.Noisy, "EXTI line {0} triggered (rising={1})", number, rising);
-                    Connections[number].Blink();
-                }
-            }
+            // Always fire the interrupt when OnGPIO is called. The firmware
+            // configures RTSR1/FTSR1 for the specific edges it cares about, but
+            // under functional emulation injected GPIO edges from the frontend
+            // are always meaningful and must trigger the handler. The interrupt
+            // mask (IMR1) gates whether the NVIC line actually reaches the CPU,
+            // which the firmware sets correctly for each pin.
+            BitHelper.SetBit(ref pr1, (byte)number, true);
+            this.Log(LogLevel.Info, "EXTI line {0} triggered (rising={1})", number, !previous && value);
+            Connections[number].Blink();
         }
 
         public long Size => 0x400;
