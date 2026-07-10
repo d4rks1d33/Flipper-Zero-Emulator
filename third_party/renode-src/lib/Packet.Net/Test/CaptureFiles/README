@@ -1,0 +1,51 @@
+arp_request_response.pcap
+- arp request
+- arp response
+
+udp.pcap
+- Some UDP packets containing DNS requests to verify that checksums for 
+UDP packets are calculated properly
+
+udp_dns_request_response.pcap
+- dns request
+- dns response
+
+test_stream.pcap
+- Two tcp packets
+- One udp packet
+- One udp dns packet
+- One arp packet
+- One icmp packet
+
+ipv6_icmpv6_packet.pcap - A single ICMPv6 packet
+
+ipv6_http.pcap
+- Some ipv6 packets from http communication used by IPv6packetTest.cs to
+  verify that the checksums for IPv6 packets are calculated properly
+
+tcp.pcap
+- Some arbitrary tcp packets used to test the checksumming code.
+
+tcp_with_extra_bytes.pcap
+- A single tcp packet that has 6 extra bytes beyond the zero length tcp packet.
+  Allows for testing that TCPPacket.TCPData returns the proper length in odd 
+  situations.
+
+ip_packet_bogus_length.pcap
+- A single IP packet that has an invalid total length less than the length
+  of the header.
+
+LinuxCookedCapture.pcap
+3 packets captured from the Linux 'all' network device
+- ARP packet
+- UDP (dns) packet 192.168.1.102:37824 -> 66.189.0.29:53
+- TCP packet 192.168.1.102:60604 -> 216.34.181.60:443
+
+PPPoePtp.pcap
+2 packets captured
+- Ethernet/IPv4/Udp/Data
+- Ethernet/PPPoe/PtP/IPv4/Udp/Data
+
+udpPacketWithEthernetTrailers.pcap
+1 packet, Ethernet/IPv4/Udp/Data with an ethernet packet that has
+three trailing bytes

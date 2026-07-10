@@ -1,0 +1,4 @@
+sysbus:
+    init add:
+        Tag <0x50094034 4> "DCDC_IF" 0xFFFFFFFF
+        Tag <0x50004064 4> "EMU_IF" 0xFFFFFFFF

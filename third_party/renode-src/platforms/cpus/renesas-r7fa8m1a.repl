@@ -1,0 +1,500 @@
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 32000000
+    IRQ -> cpu@0
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m85"
+    nvic: nvic
+
+itcm: Memory.MappedMemory @ {
+        sysbus 0x00000000;
+        sysbus 0x10000000
+    }
+    size: 0x10000
+
+code_flash: Memory.MappedMemory @ {
+        sysbus 0x02000000;
+        sysbus 0x12000000
+    }
+    size: 0x200000
+
+factory_flash: Memory.MappedMemory @ {
+        sysbus 0x03008000;
+        sysbus 0x13008000
+    }
+    // Size should be 0x2300, but the registered memory region has to be aligned to page boundaries
+    size: 0x2400
+
+dtcm: Memory.MappedMemory @ {
+        sysbus 0x30000000;
+        sysbus 0x20000000
+    }
+    size: 0x10000
+
+sram: Memory.MappedMemory @ {
+        sysbus 0x22000000;
+        sysbus 0x32000000
+    }
+    size: 0xE0000
+
+standby_sram: Memory.MappedMemory @ {
+        sysbus 0x26000000;
+        sysbus 0x36000000
+    }
+    size: 0x400
+
+data_flash: Memory.MappedMemory @ {
+        sysbus 0x27000000;
+        sysbus 0x37000000
+    }
+    size: 0x3000
+
+option_setting: Memory.ArrayMemory @ {
+        sysbus 0x27030050;
+        sysbus 0x37030050
+    }
+    size: 0x3B0
+
+icu: IRQControllers.RenesasRA_ICU @ sysbus 0x4000c000
+    nvic: nvic
+
+gpt: Timers.RenesasRA_GPT @ sysbus 0x40322000
+    numberOf32BitChannels: 8
+    numberOf16BitChannels: 6
+    commonRegistersOffset: 0x1f00
+    peripheralClockDFrequency: 48000000
+
+gpt_ns: Timers.RenesasRA_GPT @ sysbus 0x50322000
+    numberOf32BitChannels: 8
+    numberOf16BitChannels: 6
+    commonRegistersOffset: 0x1f00
+    peripheralClockDFrequency: 48000000
+    [0x0-0x7C] -> icu@[0x0A1-0x11D]
+
+agt0: Timers.RenesasRA_AGT @ sysbus 0x40221000
+    lowSpeedOnChipOscillatorFrequency: 32768
+    subClockOscillatorFrequency: 32768
+    peripheralClockBFrequency: 60000000
+    IRQ -> icu@0x046
+    CompareMatchA -> icu@0x047
+    CompareMatchB -> icu@0x048
+
+agt1: Timers.RenesasRA_AGT @ sysbus 0x40221100
+    lowSpeedOnChipOscillatorFrequency: 32768
+    subClockOscillatorFrequency: 32768
+    peripheralClockBFrequency: 60000000
+    IRQ -> icu@0x049
+    CompareMatchA -> icu@0x04A
+    CompareMatchB -> icu@0x04B
+
+sci0: UART.RenesasRA8M1_SCI @ sysbus 0x40358000
+    frequency: 8_000_000
+    ReceiveIRQ -> icu@0x124
+    TransmitIRQ -> icu@0x125
+    TransmitEndIRQ -> icu@0x126
+
+sci1: UART.RenesasRA8M1_SCI @ sysbus 0x40358100
+    frequency: 8_000_000
+    ReceiveIRQ -> icu@0x12B
+    TransmitIRQ -> icu@0x12C
+    TransmitEndIRQ -> icu@0x12D
+
+sci2: UART.RenesasRA8M1_SCI @ sysbus 0x40358200
+    frequency: 8_000_000
+    ReceiveIRQ -> icu@0x132
+    TransmitIRQ -> icu@0x133
+    TransmitEndIRQ -> icu@0x134
+
+sci3: UART.RenesasRA8M1_SCI @ sysbus 0x40358300
+    frequency: 8_000_000
+    ReceiveIRQ -> icu@0x139
+    TransmitIRQ -> icu@0x13A
+    TransmitEndIRQ -> icu@0x13B
+
+sci4: UART.RenesasRA8M1_SCI @ sysbus 0x40358400
+    frequency: 8_000_000
+    ReceiveIRQ -> icu@0x140
+    TransmitIRQ -> icu@0x141
+    TransmitEndIRQ -> icu@0x142
+
+sci9: UART.RenesasRA8M1_SCI @ sysbus 0x40358900
+    frequency: 8_000_000
+    ReceiveIRQ -> icu@0x163
+    TransmitIRQ -> icu@0x164
+    TransmitEndIRQ -> icu@0x165
+
+portMisc: GPIOPort.RenesasRA_GPIOMisc @ sysbus 0x40400D00
+    version: Version.RA8
+
+port0: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400000;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400800; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x0
+    numberOfConnections: 14
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port1: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400020;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400840; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x1
+    numberOfConnections: 12
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port2: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400040;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400880; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x2
+    numberOfConnections: 14
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port3: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400060;
+        sysbus new Bus.BusMultiRegistration { address: 0x404008C0; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x3
+    numberOfConnections: 16
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port4: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400080;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400900; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x4
+    numberOfConnections: 16
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port5: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x404000A0;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400940; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x5
+    numberOfConnections: 16
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port6: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x404000C0;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400980; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x6
+    numberOfConnections: 15
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port7: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x404000E0;
+        sysbus new Bus.BusMultiRegistration { address: 0x404009C0; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x7
+    numberOfConnections: 16
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port8: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400100;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400A00; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x8
+    numberOfConnections: 16
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port9: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400120;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400A40; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x9
+    numberOfConnections: 16
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+portA: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400140;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400A80; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0xA
+    numberOfConnections: 16
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+portB: GPIOPort.RenesasRA8_GPIO @ {
+        sysbus 0x40400160;
+        sysbus new Bus.BusMultiRegistration { address: 0x40400AC0; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0xB
+    numberOfConnections: 8
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+// This is an 8-bit register. During initialization we sometimes require
+// this register to first be 0 and then non 0. Hence the use of flipflop.
+SYSC_SCICKCR: Python.PythonPeripheral @ sysbus 0x4001e055
+    size: 0x1
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+iic0: I2C.RenesasRA_IIC @ sysbus 0x4025e000
+    ReceiveIRQ -> icu@0x05C
+    TransmitIRQ -> icu@0x05D
+    TransmitEndIRQ -> icu@0x05E
+    ErrorOrEventIRQ -> icu@0x05F
+
+iic1: I2C.RenesasRA_IIC @ sysbus 0x4025e100
+    ReceiveIRQ -> icu@0x061
+    TransmitIRQ -> icu@0x062
+    TransmitEndIRQ -> icu@0x063
+    ErrorOrEventIRQ -> icu@0x064
+
+sysbus:
+    init:
+        Tag <0x40000000,0x40000e43> "RMPU" // Renesas Memory Protection Unit
+        Tag <0x40002000,0x40002157> "SRAM" // SRAM Control
+        Tag <0x40003000,0x40004c03> "BUS" // BUS Control
+        Tag <0x40004000,0x40004017> "TZF" // TrustZone Filter
+        Tag <0x40006000,0x40006097> "ICU_COMMON" // Common Interrupt Controller
+        Tag <0x40008000,0x40008d03> "CPSCU" // CPU System Security Control Unit
+        Tag <0x4000a000,0x4000a037> "DMAC0" // Direct memory access controller 0
+        Tag <0x4000a800,0x4000a8b3> "DMA" // DMAC Module Activation
+        Tag <0x4000ac00,0x4000ac27> "DTC" // Data Transfer Controller
+        Tag <0x40011000,0x40011307> "CPU_OCD" // On-Chip Debug
+        Tag <0x4001b000,0x4001b317> "CPU_DBG" // Debug Function
+        Tag <0x4001c100,0x4001c143> "FCACHE" // Flash Cache
+        Tag <0x4001e000,0x4001ee2b> "SYSC" // System Control
+        Tag <0x4001e03c,0x4001e03d> "OSCSF" 0x69 // Oscillation Stabilization Flag Register
+        Tag <0x4011b17c,0x4011b183> "TSD" // Temperature Sensor Data
+        Tag <0x4011c000,0x4011c043> "FLAD" // Data Flash
+        Tag <0x4011e000,0x4011e817> "FACI" // Flash Application Command Interface
+        Tag <0x40201000,0x402010fb> "ELC" // Event Link Controller
+        Tag <0x40202000,0x402020ab> "RTC" // Realtime Clock
+        Tag <0x40202200,0x4020220f> "IWDT" // Independent Watchdog Timer
+        Tag <0x40202400,0x4020240f> "CAC" // Clock Frequency Accuracy Measurement Circuit
+        Tag <0x40202600,0x4020260f> "WDT" // Watchdog Timer
+        Tag <0x40203000,0x40203023> "MSTP" // Module Stop Control A,B,C,D,E
+        Tag <0x40204000,0x40204063> "PSCU" // Peripheral Security Control Unit
+        Tag <0x40212000,0x40213027> "POEG" // Port Output Enable Module for GPT
+        Tag <0x40220000,0x4022001b> "ULPT0" // Ultra-Low Power Timer 0
+        Tag <0x40235000,0x40235007> "TSN" // Temperature Sensor
+        Tag <0x40236000,0x40236047> "ACMPHS0" // High-Speed Analog Comparator 0
+        Tag <0x40250000,0x40250527> "USBFS" // USB 2.0 FS Module
+        Tag <0x40252000,0x40252213> "SDHI0" // SD Host Interface 0
+        Tag <0x4025d000,0x4025d037> "SSIE0" // Serial Sound Interface Enhanced (SSIE)
+        Tag <0x40268000,0x4026823b> "xSPI" // eXpanded SPI
+        Tag <0x40310000,0x4031000f> "CRC" // CRC Calculator
+        Tag <0x40311000,0x4031101b> "DOC" // Data Operation Circuit-4
+        Tag <0x40332000,0x403321e3> "ADC120" // 12bit A/D Converter 0
+        Tag <0x40332200,0x403323e3> "ADC121" // 12bit A/D Converter 1
+        Tag <0x40333000,0x403340c7> "DAC12" // 12-bit D/A converter
+        Tag <0x40342000,0x40343FFF> "GLCDC" // Graphics LCD Controller
+        Tag <0x40344000,0x403440fb> "DRW" // 2D Drawing Engine
+        Tag <0x40346000,0x403469f3> "DSILINK" // DSI Link
+        Tag <0x40346c00,0x40346d47> "DPHYCNT" // D-PHY Controller Top
+        Tag <0x40348000,0x4034a0a7> "CEU" // Capture Engine Unit
+        Tag <0x40351000,0x40351173> "USBHS" // USB 2.0 High-Speed Module
+        Tag <0x40354000,0x403540df> "EDMAC0" // DMA Controller for the Ethernet Controller Channel 0
+        Tag <0x40354100,0x40355983> "ETHERC0" // Ethernet Controller Channel 0
+        Tag <0x4035c000,0x4035c073> "SPI0" // Serial Peripheral Interface 0
+        Tag <0x4035f000,0x4035f403> "I3C" // I2C I3C unified IP
+        Tag <0x4036f200,0x4036f217> "ECCMB0" // Error correction circuit for MBRAM0
+        Tag <0x40380000,0x40381b4b> "CANFD0" // CANFD Module 0
+        Tag <0x40400800,0x40400e37> "PFS" // Pmn Pin Function Control Register

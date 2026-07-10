@@ -1,0 +1,21 @@
+mem: Memory.MappedMemory @ 0x2000000
+    size: 0x100000
+
+sysbus:
+    init add:
+        // ApplySVD @https://dl.antmicro.com/projects/renode/svd//MSP432P401R.svd.gz
+        WriteDoubleWord 0x2000824 0x2010000 # ROM_GPIOTABLE_OFFSET
+        WriteDoubleWord 0x201001c 0x2012001 # ROM_GPIOTABLE_7_setAsPeripheralModuleFunctionInputPin
+        WriteDoubleWord 0x2000860 0x2011000 # ROM_UARTTABLE_OFFSET
+        WriteDoubleWord 0x2011000 0x2013001 # ROM_UARTTABLE_0_initModule
+        WriteDoubleWord 0x2011004 0x2014001 # ROM_UARTTABLE_1_transmitData
+        WriteDoubleWord 0x2011008 0x2015001 # ROM_UARTTABLE_2_enableModule
+        WriteDoubleWord 0x2012000 0x4770 # bx lr
+        WriteDoubleWord 0x2013000 0x4770 # bx lr
+        WriteDoubleWord 0x2014000 0x4770 # bx lr
+        WriteDoubleWord 0x2015000 0x4770 # bx lr
+        Machine CreateVirtualConsole "uart0"
+
+cpu0:
+    init:
+        AddHook 0x2014000 "console = monitor.Machine['sysbus.uart0'];console.WriteChar(cpu.GetRegisterUnsafe(1).RawValue)"

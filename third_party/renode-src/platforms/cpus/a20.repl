@@ -1,0 +1,102 @@
+memoryBrom: Memory.MappedMemory @ sysbus 0xFFFF0000
+    size: 0x10000
+
+memorySram: Memory.MappedMemory @ sysbus 0x0
+    size: 0x40000
+
+memoryRam: Memory.MappedMemory @ sysbus 0x40000000
+    size: 0x80000000
+
+uart0: UART.NS16550 @ sysbus 0x1C28000
+    wideRegisters: true
+    -> gic@0x1
+
+uart1: UART.NS16550 @ sysbus 0x1C28400
+    wideRegisters: true
+    -> gic@0x2
+
+uart2: UART.NS16550 @ sysbus 0x1C28800
+    wideRegisters: true
+    -> gic@0x3
+
+uart3: UART.NS16550 @ sysbus 0x1C28c00
+    wideRegisters: true
+    -> gic@0x4
+
+uart4: UART.NS16550 @ sysbus 0x1C29000
+    wideRegisters: true
+    -> gic@0x11
+
+uart5: UART.NS16550 @ sysbus 0x1C29400
+    wideRegisters: true
+    -> gic@0x12
+
+uart6: UART.NS16550 @ sysbus 0x1C29800
+    wideRegisters: true
+    -> gic@0x13
+
+uart7: UART.NS16550 @ sysbus 0x1C29c00
+    wideRegisters: true
+    -> gic@0x14
+
+usbEhci1: USBDeprecated.EHCIHostController @ sysbus <0x1C14000, +0x1000>
+    -> gic@0x27
+    ehciBaseAddress: 0x0
+    capabilityRegistersLength: 0x10
+
+usbHub: USBDeprecated.UsbHub @ usbEhci1 1
+
+usbEhci2: USBDeprecated.EHCIHostController @ sysbus <0x1C1C000, +0x1000>
+    -> gic@0x28
+    ehciBaseAddress: 0x0
+    capabilityRegistersLength: 0x10
+
+gic: IRQControllers.ARM_GenericInterruptController @ {
+        sysbus new Bus.BusMultiRegistration { address: 0x1C81000; size: 0x1000; region: "distributor" };
+        sysbus new Bus.BusMultiRegistration { address: 0x1C82000; size: 0x100; region: "cpuInterface" }
+    }
+    supportsTwoSecurityStates: false
+    architectureVersion: .GICv2
+    // GIC -> ARM CPU interrupt connections are generated automatically
+
+// The cpuType, the frequency of the timer and the timer interrupt id are extracted from the legacy CPU.CortexA7 class
+cpu: CPU.ARMv7A @ sysbus
+    cpuType: "cortex-a15"
+    genericInterruptController: gic
+
+timer: Timers.ARM_GenericTimer @ cpu
+    frequency: 24000000
+    VirtualTimerIRQ -> gic#0@1
+
+uartSemihosting: UART.SemihostingUart @ cpu
+
+sunxiMmc0: SD.SunxiMMC @ sysbus 0x1C0F000
+    -> gic@32
+
+sunxiMmc1: SD.SunxiMMC @ sysbus 0x1C10000
+    -> gic@33
+
+sunxiMmc3: SD.SunxiMMC @ sysbus 0x1C12000
+    -> gic@35
+
+sunxiHstimer: Timers.SunxiHighSpeedTimer @ sysbus 0x1C60000
+    frequency: 100000000
+    [0-3] -> gic@[81-84]
+
+sunxiTimer: Timers.SunxiTimer @ sysbus 0x1C20C00
+    Timer0Irq -> gic@22
+    Timer1Irq -> gic@23
+
+sysbus:
+    init:
+        Tag <0x1C00000, 0x1C00FFF> "SRAM_CONTROLLER"
+        Tag <0x1C01000, 0x1C01FFF> "DRAM_CONTROLLER"
+        Tag <0x1C00024, 0x1C00027> "FEL_GPIO" 0xFFFFFFFF
+        Tag <0x1C0F000, 0x1C0FFFF> "SDC0"
+        Tag <0x1C20000, 0x1C203FF> "CCU"
+        Tag <0x1C03000, 0x1C03FFF> "NANDFLASHC"
+        Tag <0x1C02000, 0x1C02FFF> "DMAC"
+        Tag <0x1C11000, 0x1C11FFF> "SDC2"
+        Tag <0x1C05000, 0x1C05FFF> "SPI0"
+        Tag <0x1C13000, 0x1C13FFF> "USB0"
+

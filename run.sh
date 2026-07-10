@@ -39,6 +39,7 @@ FIRMWARE_BIN=""
 UPDATE_TGZ=""
 LAUNCH_GUI=1
 HEADLESS=0
+RESET_FLASH=0
 MONITOR_PORT="${FLIPPER_EMU_MONITOR_PORT:-1234}"
 
 while [[ $# -gt 0 ]]; do
@@ -46,6 +47,7 @@ while [[ $# -gt 0 ]]; do
         --with-update) UPDATE_TGZ="$2"; shift 2 ;;
         --no-gui)      LAUNCH_GUI=0; shift ;;
         --headless)    HEADLESS=1; LAUNCH_GUI=0; shift ;;
+        --reset-flash) RESET_FLASH=1; shift ;;
         --help|-h)
             grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -22
             exit 0 ;;
@@ -53,29 +55,73 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+FLASH_IMG="$SCRIPT_DIR/firmware/flash.img"
+
+# Write a raw firmware .bin into the non-volatile flash image at offset 0
+# (0x08000000 maps to offset 0). This is the host-side equivalent of flashing
+# the chip over SWD/DFU: the emulator then boots whatever is in flash.img.
+seed_flash_from_bin() {
+    local bin="$1"
+    python3 - "$bin" "$FLASH_IMG" <<'PY'
+import sys
+bin_path, img = sys.argv[1], sys.argv[2]
+SIZE = 0x100000
+data = bytearray(b"\xff" * SIZE)
+with open(bin_path, "rb") as f:
+    b = f.read()
+if len(b) > SIZE:
+    print(f"Error: firmware {bin_path} ({len(b)} bytes) larger than 1 MB flash"); sys.exit(1)
+data[:len(b)] = b
+with open(img, "wb") as f:
+    f.write(data)
+PY
+}
+
 # Regenerate machine-specific files if missing (portable across clones/moves).
 if [ ! -f platform/stm32wb55_flipper.repl ] || [ ! -f scripts/run_updater.resc ]; then
     ./setup.sh
 fi
 
-if [ -z "$FIRMWARE_BIN" ]; then
-    # Prefer an emulator-patched build (boots fully: fixes battery/charger delays).
-    FIRMWARE_BIN=$(find "firmware" -name "*EMULATOR*patched*.bin" -type f 2>/dev/null | head -1)
-    if [ -z "$FIRMWARE_BIN" ]; then
-        FIRMWARE_BIN=$(find "$SCRIPT_DIR/firmware" -name "*.bin" -type f 2>/dev/null | head -1)
-    fi
-    if [ -z "$FIRMWARE_BIN" ]; then
-        echo "Error: no firmware specified and none found in firmware/"
+# ─── Non-volatile flash image is the source of truth for what boots ──────────
+# The emulated internal flash lives in firmware/flash.img (a disk-backed,
+# non-volatile MappedMemory). The emulator boots whatever is in it -- the stock
+# build initially, or a firmware the OTA updater flashed in a previous run.
+#
+#   ./run.sh                     -> boot current flash.img (persists across runs)
+#   ./run.sh firmware/foo.bin    -> reflash the chip with foo.bin, then boot it
+#   ./run.sh --reset-flash       -> reflash with the bundled stock build, boot it
+#   ./run.sh --with-update x.tgz -> run the OTA updater against current flash.img
+pick_bundled_stock() {
+    for cand in "firmware/flipper-z-f7-full.bin" "firmware/flipper-z-f7-STOCK.bin"; do
+        [ -f "$cand" ] && { echo "$cand"; return; }
+    done
+    find "$SCRIPT_DIR/firmware" -maxdepth 1 -name "*.bin" -type f 2>/dev/null | head -1
+}
+
+if [ "$RESET_FLASH" -eq 1 ]; then
+    STOCK="$(pick_bundled_stock)"
+    [ -n "$STOCK" ] || { echo "Error: --reset-flash: no bundled .bin in firmware/"; exit 1; }
+    echo "Reflashing internal flash from bundled stock: $STOCK"
+    seed_flash_from_bin "$STOCK"
+elif [ -n "$FIRMWARE_BIN" ]; then
+    [ -f "$FIRMWARE_BIN" ] || { echo "Error: firmware not found: $FIRMWARE_BIN"; exit 1; }
+    echo "Reflashing internal flash from: $FIRMWARE_BIN"
+    seed_flash_from_bin "$FIRMWARE_BIN"
+elif [ ! -f "$FLASH_IMG" ]; then
+    # First run and flash.img not seeded yet: seed from bundled stock.
+    STOCK="$(pick_bundled_stock)"
+    if [ -z "$STOCK" ]; then
+        echo "Error: no firmware/flash.img and no bundled .bin to seed it."
         echo "  Put a flipper-z-f7-full-*.bin in firmware/, or run: ./install.sh --with-firmware"
         exit 1
     fi
+    echo "Seeding internal flash from bundled stock: $STOCK"
+    seed_flash_from_bin "$STOCK"
 fi
-[ -f "$FIRMWARE_BIN" ] || { echo "Error: firmware not found: $FIRMWARE_BIN"; exit 1; }
-# FIRMWARE_BIN is now relative to SCRIPT_DIR
 
 echo "=== Flipper Zero Emulator ==="
-echo "Renode:   $RENODE"
-echo "Firmware: $FIRMWARE_BIN"
+echo "Renode:      $RENODE"
+echo "Flash image: $FLASH_IMG (non-volatile)"
 
 export FLIPPER_EMU_LOG_DIR="$SCRIPT_DIR/logs"
 export FLIPPER_EMU_FB_PATH="${FLIPPER_EMU_FB_PATH:-/tmp/flipper_fb.raw}"
@@ -98,8 +144,9 @@ echo ""
 
 # Renode runs headless (no X) and serves its monitor on a TCP port so the SDL
 # frontend can inject buttons. --disable-xwt keeps it windowless either way.
+# The firmware is no longer passed in: the emulator boots the non-volatile
+# flash image (firmware/flash.img) that Renode loads automatically.
 "$RENODE" --disable-xwt --port "$MONITOR_PORT" \
-    -e "\$firmware_bin=@${FIRMWARE_BIN}" \
     -e "include @${RESC}" &
 RENODE_PID=$!
 

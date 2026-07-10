@@ -17,6 +17,11 @@ namespace Antmicro.Renode.Peripherals.SPI
 {
     public class CC1101 : ISPIPeripheral
     {
+        // Delegate the CC1101 raised on IOCFG0 writes so the owner (Spi1Router)
+        // can forward it to the GDO0 GPIO output wired to PA1. See the GDO0/PA1
+        // self-test note in Spi1Router.cs. Level meaning is "GDO0 output high".
+        public Action<bool> Gdo0Changed;
+
         public CC1101()
         {
             regs = new byte[0x2F];
@@ -37,8 +42,27 @@ namespace Antmicro.Renode.Peripherals.SPI
             addr = 0;
             state = 0x00;  // IDLE
             fifoBytes = 0;
+            // IOCFG0 reset default 0x06 has no INV bit => GDO0 low.
+            UpdateGdo0(regs[0x02]);
         }
 
+        // SELF-FRAMING NOTE
+        // ─────────────────
+        // Renode's STM32SPI never calls FinishTransmission per SPI transaction,
+        // and the Flipper CC1101 driver holds CS low for the WHOLE acquire window
+        // (many cc1101_write_reg/strobe calls back-to-back - CS is only toggled on
+        // furi_hal_spi_acquire/release, not per transfer). So this model cannot
+        // rely on a CS edge or FinishTransmission to delimit each command. Instead
+        // it self-frames from the CC1101 header byte, whose command class implies a
+        // fixed length:
+        //   * strobe  (0x30-0x3D, non-burst): 1-byte frame (header only)
+        //   * config/status single access (non-burst): header + 1 data = 2 bytes
+        //   * burst access: header + N data, terminated only by CS deassert; we
+        //     stay "in frame" auto-incrementing until FinishTransmission (which the
+        //     router raises on the CS rising edge, once per acquire/release).
+        // After a fixed-length frame completes we reset byteIndex to 0 so the next
+        // byte is decoded as a fresh header. This keeps IOCFG0 writes (and the GDO0
+        // self test) correctly framed even though CS stays asserted.
         public byte Transmit(byte data)
         {
             byteIndex++;
@@ -47,48 +71,81 @@ namespace Antmicro.Renode.Peripherals.SPI
                 readMode = (data & 0x80) != 0;
                 burst = (data & 0x40) != 0;
                 addr = (byte)(data & 0x3F);
+
+                // A non-burst strobe (0x30-0x3D) is a complete 1-byte command.
+                if(!burst && addr >= 0x30 && addr <= 0x3D)
+                {
+                    HandleStrobe(addr);
+                    byteIndex = 0; // frame complete: next byte is a new header
+                    return StatusByte();
+                }
                 return StatusByte();
             }
 
+            byte ret;
             if(addr <= 0x2E)
             {
                 if(readMode)
                 {
-                    var v = regs[addr];
-                    Log("read_reg", addr, v);
-                    if(burst && addr < 0x2E) { addr++; }
-                    return v;
+                    ret = regs[addr];
+                    Log("read_reg", addr, ret);
                 }
-                regs[addr] = data;
-                Log("write_reg", addr, data);
-                if(burst && addr < 0x2E) { addr++; }
-                return StatusByte();
+                else
+                {
+                    regs[addr] = data;
+                    Log("write_reg", addr, data);
+                    if(addr == 0x02) { UpdateGdo0(data); }  // IOCFG0 => drive GDO0 (PA1)
+                    ret = StatusByte();
+                }
+                if(burst) { if(addr < 0x2E) { addr++; } }
+                else { byteIndex = 0; } // single access: 2-byte frame complete
             }
             else if(addr >= 0x30 && addr <= 0x3D)
             {
-                if(readMode)
-                {
-                    return ReadStatusReg(addr);
-                }
-                HandleStrobe(addr);
-                return StatusByte();
+                // Status-register access. The Flipper firmware always reads these
+                // as BURST but exactly one data byte per header (e.g.
+                // cc1101_read_reg(CC1101_STATUS_RXBYTES | CC1101_BURST)). Treat it
+                // as a fixed 2-byte frame and reset regardless of the burst bit so
+                // back-to-back status reads within one CS window stay aligned.
+                ret = readMode ? ReadStatusReg(addr) : StatusByte();
+                byteIndex = 0;
             }
-            else // FIFO 0x3E/0x3F
+            else // FIFO 0x3E/0x3F (burst or single)
             {
-                if(readMode) { return 0x00; }
-                Log("fifo_write", addr, data);
-                return StatusByte();
+                if(readMode) { ret = 0x00; }
+                else { Log("fifo_write", addr, data); ret = StatusByte(); }
+                if(!burst) { byteIndex = 0; }
             }
+            return ret;
         }
 
         public void FinishTransmission()
         {
             byteIndex = 0;
+            burst = false;
         }
 
         private byte StatusByte()
         {
             return (byte)((state & 0x70) | (fifoBytes & 0x0F));
+        }
+
+        // Drive the GDO0 output line (wired to PA1) from an IOCFG0 write so the
+        // firmware's power-on self test (furi_hal_subghz_init) passes:
+        //   IOCFG0 = CC1101IocfgHW (0x2F)             -> GDO0 low
+        //   IOCFG0 = CC1101IocfgHW | CC1101_IOCFG_INV -> GDO0 high (0x6F)
+        //   IOCFG0 = CC1101IocfgHighImpedance (0x2E)  -> low (floating)
+        // The self test writes 0x2F, waits for PA1==low, then 0x6F, waits for
+        // PA1==high. We model only the inversion bit (0x40): the base signal is
+        // treated as logic-low, INV makes it high. This is enough for the test.
+        private void UpdateGdo0(byte iocfg0)
+        {
+            var high = (iocfg0 & 0x40) != 0; // CC1101_IOCFG_INV
+            if(Gdo0Changed != null)
+            {
+                Gdo0Changed(high);
+            }
+            Log("gdo0", 0x02, high ? 1 : 0);
         }
 
         private byte ReadStatusReg(byte a)
@@ -120,14 +177,27 @@ namespace Antmicro.Renode.Peripherals.SPI
             }
         }
 
+        // JSONL logging. A single StreamWriter is opened lazily and reused so we
+        // do not open/close the file on every SPI byte. AutoFlush keeps the file
+        // consistent if the emulator is killed. All I/O is wrapped so a logging
+        // failure can NEVER propagate back into the SPI transfer (no hang/crash).
         private void Log(string action, int a, int v)
         {
             try
             {
-                var line = string.Format(
-                    "{{\"t\":{0},\"dev\":\"CC1101\",\"action\":\"{1}\",\"addr\":\"0x{2:X2}\",\"value\":\"0x{3:X2}\"}}\n",
-                    DateTime.UtcNow.Ticks, action, a, v);
-                File.AppendAllText(logPath, line);
+                if(writer == null)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(logPath));
+                    writer = new StreamWriter(logPath, append: true) { AutoFlush = true };
+                }
+                var dir = action.StartsWith("read") ? "in" : "out";
+                writer.Write(
+                    "{\"t\":\"" + DateTime.UtcNow.ToString("o") + "\"," +
+                    "\"dev\":\"CC1101\"," +
+                    "\"dir\":\"" + dir + "\"," +
+                    "\"action\":\"" + action + "\"," +
+                    "\"addr\":\"0x" + a.ToString("X2") + "\"," +
+                    "\"value\":\"0x" + v.ToString("X2") + "\"}\n");
             }
             catch { }
         }
@@ -140,6 +210,7 @@ namespace Antmicro.Renode.Peripherals.SPI
 
         private readonly byte[] regs;
         private readonly string logPath;
+        private StreamWriter writer;
         private int byteIndex;
         private bool readMode;
         private bool burst;

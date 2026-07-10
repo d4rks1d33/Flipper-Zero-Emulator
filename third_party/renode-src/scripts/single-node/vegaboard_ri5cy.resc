@@ -1,0 +1,11 @@
+$name?="Vegaboard-RI5CY"
+
+using sysbus
+mach create $name
+machine LoadPlatformDescription @platforms/boards/vegaboard_ri5cy.repl
+
+$bin?=@https://dl.antmicro.com/projects/renode/vegaboard--zephyr_shell.elf-s_1000428-46ce2752ebea346c8d232ab4e4f8d489999488af
+
+showAnalyzer lpuart0
+
+sysbus LoadELF $bin

@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -e
+set -u
+
+# this is to support running Renode from an external directory and via a symlink
+ROOT_PATH="$(cd $(dirname $(readlink -f $0 2>/dev/null || echo $0)); echo $PWD)"
+
+. "$ROOT_PATH/tools/common.sh"
+
+OUTPUT_PATH="$ROOT_PATH/output/bin"
+
+TARGET="Release"
+QUIET=false
+TRACE=false
+NET=true
+
+PARAMS=()
+while [[ "$#" -gt 0 ]]
+do
+    case $1 in
+    -d|--debug)
+        TARGET="Debug"
+        if $ON_LINUX
+        then
+            LAUNCHER="$LAUNCHER --debug"
+        fi
+        ;;
+    -q|--quiet)
+        QUIET=true
+        ;;
+    --net)
+        echo "'--net' flag is required only for building and is not used by launcher"
+        ;;
+    --trace)
+        TRACE=true
+        TRACE_FORMAT=${2:-}
+        case $TRACE_FORMAT in
+            Chromium|chromium)
+                TRACE_FORMAT="Chromium"
+                shift
+                ;;
+            Speedscope|speedscope)
+                TRACE_FORMAT="Speedscope"
+                shift
+                ;;
+            Nettrace|nettrace)
+                TRACE_FORMAT="Nettrace"
+                shift
+                ;;
+            *)
+                # No format specified - use default, don't shift argument list
+                TRACE_FORMAT="Nettrace"
+                ;;
+        esac
+        ;;
+    *)
+        PARAMS+=("$1")
+        ;;
+    esac
+    shift
+done
+
+BUILD_TYPE_FILE="$OUTPUT_PATH/$TARGET/build_type"
+
+if [[ -f "$BUILD_TYPE_FILE" ]]
+then
+    if [[ "$(cat "$BUILD_TYPE_FILE")" == "mono" ]]
+    then
+        NET=false
+    fi
+fi
+
+if ! $NET && $TRACE
+then
+    echo "Tracing is available only on the dotnet target"
+    exit 1
+fi
+
+if ! $ON_WINDOWS && ! $NET
+then
+    verify_mono_version
+fi
+
+if ${REMOTE:-false} && ! $NET
+then
+    LAUNCHER="$LAUNCHER --debugger-agent=transport=dt_socket,address=0.0.0.0:${REMOTE_PORT:=9876},server=y"
+    echo "Waiting for a debugger at port $REMOTE_PORT..."
+fi
+
+if ${QUIET:-false}
+then
+    exec 2>/dev/null
+fi
+
+if $NET
+then
+    export DOTNET_CLI_TELEMETRY_OPTOUT=1
+    if ! $TRACE
+    then
+        TRACE_COMMAND=""
+    else
+        TRACE_COMMAND="dotnet-trace collect --format ${TRACE_FORMAT} --"
+    fi
+
+    ${TRACE_COMMAND} dotnet "${OUTPUT_PATH}/${TARGET}/Renode.dll" "${PARAMS[@]:-}"
+else
+    if $ON_WINDOWS
+    then
+        "${OUTPUT_PATH}/${TARGET}/Renode.exe" "${PARAMS[@]:-}"
+    else
+        $LAUNCHER "${OUTPUT_PATH}/${TARGET}/Renode.exe" "${PARAMS[@]:-}"
+    fi
+fi

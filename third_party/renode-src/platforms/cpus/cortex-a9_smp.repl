@@ -1,0 +1,34 @@
+using "./cortex-a9.repl"
+
+cpu1: CPU.ARMv7A @ sysbus
+    cpuType: "cortex-a9"
+    genericInterruptController: gic
+    cpuId: 1
+
+cpu2: CPU.ARMv7A @ sysbus
+    cpuType: "cortex-a9"
+    genericInterruptController: gic
+    cpuId: 2
+
+cpu3: CPU.ARMv7A @ sysbus
+    cpuType: "cortex-a9"
+    genericInterruptController: gic
+    cpuId: 3
+
+privateTimer1: Timers.ARM_PrivateTimer @ {
+        sysbus new Bus.BusPointRegistration { address: 0xae000600; cpu: cpu1 }
+    }
+    -> gic#1@29
+    frequency: 667000000
+
+privateTimer2: Timers.ARM_PrivateTimer @ {
+        sysbus new Bus.BusPointRegistration { address: 0xae000600; cpu: cpu2 }
+    }
+    -> gic#2@29
+    frequency: 667000000
+
+privateTimer3: Timers.ARM_PrivateTimer @ {
+        sysbus new Bus.BusPointRegistration { address: 0xae000600; cpu: cpu3 }
+    }
+    -> gic#3@29
+    frequency: 667000000

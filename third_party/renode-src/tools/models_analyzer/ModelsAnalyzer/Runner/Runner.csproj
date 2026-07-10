@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>RenodeAnalyzersRunner</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+    <PackageReference Include="Microsoft.Build.Locator" Version="1.5.5" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.4.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="NLog" Version="5.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Analyzers\Analyzers.csproj" />
+    <ProjectReference Include="..\Utils\Utils.csproj" />
+
+    <Reference Include="Analyzers">
+      <HintPath>..\Analyzers\bin\Debug\net8.0\RenodeAnalyzers.dll</HintPath>
+      <HintPath>..\Analyzers\bin\Release\net8.0\RenodeAnalyzers.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+<PropertyGroup> 
+  <!-- Make Runner dotnet tool -->
+  <PackAsTool>true</PackAsTool>
+  <ToolCommandName>renode-analysis-runner</ToolCommandName>
+  <PackageOutputPath>./package</PackageOutputPath>
+</PropertyGroup> 
+
+</Project>

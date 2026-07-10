@@ -1,0 +1,14 @@
+#temp
+*~
+tags
+
+#bin
+*.so
+bin
+obj
+
+#ide
+*.pidb
+*.userprefs
+.vscode
+*.swp

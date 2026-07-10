@@ -1,0 +1,256 @@
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 72000000
+    IRQ -> cpu@0
+
+exti: IRQControllers.STM32F4_EXTI @ sysbus 0x40010400
+    numberOfOutputLines: 32
+    [0, 1] -> nvicInput5@[0, 1]
+    [2, 3] -> nvicInput6@[0, 1]
+    [4-15] -> nvicInput7@[0-11]
+    [21, 22] -> nvicInput12@[0, 1]
+    [25] -> nvicInput27@[0]
+    [26] -> nvicInput28@[0]
+    [28] -> nvicInput29@[0]
+    [18, 23, 27] -> nvic@[31, 23, 30]
+
+nvicInput5: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@5
+
+nvicInput6: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@6
+
+nvicInput7: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 12
+    -> nvic@7
+
+nvicInput12: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 3
+    -> nvic@12
+
+nvicInput27: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@27
+
+nvicInput28: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@28
+
+nvicInput29: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 7
+    -> nvic@29
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m0"
+    nvic: nvic
+
+usart1: UART.STM32F7_USART @ sysbus 0x40013800
+    frequency: 200000000
+    IRQ -> nvicInput27@1
+
+usart2: UART.STM32F7_USART @ sysbus 0x40004400
+    frequency: 200000000
+    IRQ -> nvicInput28@1
+
+usart3: UART.STM32F7_USART @ sysbus 0x40004800
+    frequency: 200000000
+    IRQ -> nvicInput29@1
+
+usart4: UART.STM32F7_USART @ sysbus 0x40004C00
+    frequency: 200000000
+    IRQ -> nvicInput29@2
+
+usart5: UART.STM32F7_USART @ sysbus 0x40005000
+    frequency: 200000000
+    IRQ -> nvicInput29@3
+
+usart6: UART.STM32F7_USART @ sysbus 0x40011400
+    frequency: 200000000
+    IRQ -> nvicInput29@4
+
+usart7: UART.STM32F7_USART @ sysbus 0x40011800
+    frequency: 200000000
+    IRQ -> nvicInput29@5
+
+gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x48000000, +0x400>
+    modeResetValue: 0x28000000
+    pullUpPullDownResetValue: 0x24000000
+    numberOfAFs: 8
+    invertedAFPins: [[1, 5], [7, 2]]
+    [0-15] -> exti@[0-15]
+
+gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x48000400, +0x400>
+    modeResetValue: 0x00000000
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    invertedAFPins: [[0, 2], [1, 2], [6, 2], [7, 2], [13, 2], [14, 2], [15, 2, 3]]
+    [0-15] -> exti@[0-15]
+
+gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x48000800, +0x400>
+    modeResetValue: 0x00000000
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortD: GPIOPort.STM32_GPIOPort @ sysbus <0x48000C00, +0x400>
+    modeResetValue: 0x00000000
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortE: GPIOPort.STM32_GPIOPort @ sysbus <0x48001000, +0x400>
+    modeResetValue: 0x00000000
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortF: GPIOPort.STM32_GPIOPort @ sysbus <0x48001400, +0x400>
+    modeResetValue: 0x28000000
+    pullUpPullDownResetValue: 0x24000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+i2c1: I2C.STM32F7_I2C @ sysbus 0x40005400
+
+i2c2: I2C.STM32F7_I2C @ sysbus 0x40005800
+
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+    IRQ -> nvic@25
+
+spi2: SPI.STM32SPI @ sysbus 0x40003800
+    IRQ -> nvic@26
+
+timer1: Timers.STM32_Timer @ sysbus 0x40012C00
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    [BreakInterrupt, UpdateInterrupt, TriggerInterrupt, CommutationInterrupt] -> nvic@[13, 13, 13, 13]
+    CaptureCompareInterrupt -> nvic@14
+
+timer2: Timers.STM32_Timer @ sysbus 0x40000000
+    frequency: 10000000
+    initialLimit: 0xFFFFFFFF
+    -> nvic@15
+
+timer3: Timers.STM32_Timer @ sysbus 0x40000400
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    -> nvic@16
+
+timer6: Timers.STM32_Timer @ sysbus 0x40001000
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer7: Timers.STM32_Timer @ sysbus 0x40001400
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    -> nvic@18
+
+timer14: Timers.STM32_Timer @ sysbus 0x40002000
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    -> nvic@19
+
+timer15: Timers.STM32_Timer @ sysbus 0x40014000
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    -> nvic@20
+
+timer16: Timers.STM32_Timer @ sysbus 0x40014400
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    -> nvic@21
+
+timer17: Timers.STM32_Timer @ sysbus 0x40014800
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    -> nvic@22
+
+can: CAN.STMCAN @ sysbus <0x40006400, +0x400>
+
+rtc: Timers.STM32F4_RTC @ sysbus 0x40002800
+    // missing TamperIRQ, TimeStampIRQ, WakeupEventIRQ
+    AlarmIRQ -> exti@17
+
+rcc: Python.PythonPeripheral @ sysbus 0x40021000
+    size: 0x400
+    initable: true
+    script: '''
+if request.IsInit:
+    lastVal = 0
+elif request.IsRead:
+    lastVal = 1 - lastVal
+    if request.Offset == 0x0:
+        request.Value = lastVal * 0x83
+    elif request.Offset == 0x4:
+        request.Value = lastVal * 0xFFFFFFF8
+    elif request.Offset == 0x24:
+        request.Value = 0x0
+    else:
+        request.Value = lastVal * 0xFFFFFFFF
+
+self.NoisyLog("%s on FLIPFLOP at 0x%x, value 0x%x" % (str(request.Type), request.Offset, request.Value))
+'''
+
+DMA: Python.PythonPeripheral @ sysbus 0x40020000
+    size: 0x400
+    script: '''
+if request.IsWrite and request.Offset in (0x10, 0x24, 0x38):
+    # writing base address - we write some positive value there in case initialization awaits output
+    sysbus.WriteDoubleWord(request.Value, 0x40E33333)
+    self.NoisyLog("0x%x written with value 0x40E33333" % request.Value)
+'''
+
+adc: Analog.STM32F0_ADC @ sysbus 0x40012400
+    referenceVoltage: 3.3
+    externalEventFrequency: 1000
+    -> nvicInput12@2
+
+crc: CRC.STM32_CRC @ sysbus 0x40023000
+    series: STM32Series.F0
+    configurablePoly: false // Only STM32F07x and STM32F09x implements configurablePoly: true
+
+// Alternate function mapping connections. For more details see `stm32l071.repl`.
+timer1:
+    0 -> gpioPortA#07@2 | gpioPortA#08@2 | gpioPortB#13@2
+    1 -> gpioPortA#09@2 | gpioPortB#00@2 | gpioPortB#14@2
+    2 -> gpioPortA#10@2 | gpioPortB#01@2 | gpioPortB#15@2
+    3 -> gpioPortA#11@2
+
+timer3:
+    0 -> gpioPortA#06@1 | gpioPortB#04@1 | gpioPortC#06@1
+    1 -> gpioPortA#07@1 | gpioPortB#05@1 | gpioPortC#07@1
+    2 -> gpioPortB#00@1 | gpioPortC#08@1
+    3 -> gpioPortB#01@1 | gpioPortC#09@1
+
+timer14:
+    0 -> gpioPortA#04@4 | gpioPortA#07@4 | gpioPortB#01@0
+
+timer15:
+    0 -> gpioPortA#01@5 | gpioPortA#02@0 | gpioPortB#14@1 | gpioPortB#15@3
+    1 -> gpioPortA#03@0 | gpioPortB#15@1
+
+timer16:
+    0 -> gpioPortA#06@5 | gpioPortB#06@2 | gpioPortB#08@2
+
+timer17:
+    0 -> gpioPortA#07@5 | gpioPortB#07@2 | gpioPortB#09@2
+
+sysbus:
+    init:
+        Tag <0x40002C00, 0x40002FFF> "WWDG"
+        Tag <0x40003000, 0x400033FF> "IWDG"
+        Tag <0x40005C00, 0x40005FFF> "USB "
+        Tag <0x40006000, 0x400063FF> "USB/CAN SRAM"
+        Tag <0x40006C00, 0x40006FFF> "CRS"
+        Tag <0x40007000, 0x400073FF> "PWR"
+        Tag <0x40007400, 0x400077FF> "DAC"
+        Tag <0x40007800, 0x40007BFF> "CEC"
+        Tag <0x40010000, 0x400103FF> "SYSCFGCOMP"
+        Tag <0x40015800, 0x40015BFF> "DBGMCU"
+        Tag <0x40020000, 0x400203FF> "DMA"
+        Tag <0x40020400, 0x400207FF> "DMA2"
+        Tag <0x40022000, 0x400223FF> "FLASH_INTERFACE"
+        Tag <0x40023000, 0x400233FF> "CRC"
+        Tag <0x40024000, 0x400243FF> "TSC"

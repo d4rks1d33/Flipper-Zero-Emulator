@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+    <AssemblyName>CxxDemangler.Tests</AssemblyName>
+
+    <RootNamespace>CxxDemangler.Tests</RootNamespace>
+
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\CxxDemangler.snk</AssemblyOriginatorKeyFile>
+    <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\bin\Release\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Appveyor.TestLogger" Version="1.1.0-post-rtm" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0-preview-20170425-07" />
+    <PackageReference Include="MSTest.TestAdapter" Version="1.1.17" />
+    <PackageReference Include="MSTest.TestFramework" Version="1.1.17" />
+    <PackageReference Include="OpenCover" Version="4.6.519" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CxxDemangler\CxxDemangler.csproj" />
+  </ItemGroup>
+
+</Project>

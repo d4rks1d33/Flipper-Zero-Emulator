@@ -1,0 +1,291 @@
+diff --git a/src/Emulator/Main/Peripherals/Memory/MappedMemory.cs b/src/Emulator/Main/Peripherals/Memory/MappedMemory.cs
+index be9d40744..39136de51 100644
+--- a/src/Emulator/Main/Peripherals/Memory/MappedMemory.cs
++++ b/src/Emulator/Main/Peripherals/Memory/MappedMemory.cs
+@@ -69,7 +69,7 @@ static MappedMemory()
+         }
+ #endif
+ 
+-        public MappedMemory(IMachine machine, long size, int? segmentSize = null, string sharedMemoryFileRoot = null)
++        public MappedMemory(IMachine machine, long size, int? segmentSize = null, string sharedMemoryFileRoot = null, string persistenceFile = null)
+         {
+             if(size == 0)
+             {
+@@ -93,7 +93,27 @@ public MappedMemory(IMachine machine, long size, int? segmentSize = null, string
+             }
+             this.sharedMemoryFileRoot = sharedMemoryFileRoot;
+ 
++            // A non-null `persistenceFile` turns this MappedMemory into a non-volatile,
++            // disk-backed memory -- the emulated STM32WB55 internal flash keeps its
++            // contents across separate Renode processes, exactly like a real NVM chip.
++            // The whole `size` region is stored as a flat little-endian image on disk.
++            //
++            // Persistence is WRITE-THROUGH (canonical Renode backing-file pattern, cf.
++            // MXIC_MX66UM1G45G.BackingFile): the file is kept open and every guest write
++            // is mirrored to it at the matching offset. This is what makes it survive an
++            // abrupt process kill (e.g. run.sh SIGKILLing renode) -- the freshly
++            // programmed firmware is already on disk, not waiting for a clean Dispose or
++            // a machine Reset that may not fire (a guest SYSRESETREQ that takes the
++            // NVIC PauseInsteadOfReset path never resets peripherals). On construction
++            // the file (if present) is loaded into memory; a full FlushPersistence() is
++            // also done on Reset()/Dispose() as a belt-and-suspenders safety net.
++            this.persistenceFile = persistenceFile;
++
+             Init();
++
++            LoadPersistence();
++
++            OpenPersistenceStream();
+         }
+ 
+         public void TouchSegment(int segmentNo)
+@@ -153,10 +173,132 @@ public void SetDelayedInvalidation(bool value)
+ 
+         public void Dispose()
+         {
++            FlushPersistence();
+             Free();
+             GC.SuppressFinalize(this);
+         }
+ 
++        // Public so a launch script / hook can force a full write-back of the
++        // disk-backed flash at a chosen moment. With write-through persistence this
++        // is mostly a safety net (all writes are already mirrored), but it also
++        // flushes the OS buffers to disk.
++        public void FlushPersistence()
++        {
++            if(persistenceFile == null || disposed || persistenceStream == null)
++            {
++                return;
++            }
++            lock(persistenceLock)
++            {
++                try
++                {
++                    // Rewrite the whole region from the native segments, then flush
++                    // OS buffers so the image is fully on disk.
++                    long remaining = size;
++                    long offset = 0;
++                    var window = new byte[PersistenceWindow];
++                    persistenceStream.Seek(0, SeekOrigin.Begin);
++                    while(remaining > 0)
++                    {
++                        var chunk = (int)Math.Min(PersistenceWindow, remaining);
++                        ReadBytes(offset, chunk, window, 0);
++                        persistenceStream.Write(window, 0, chunk);
++                        offset += chunk;
++                        remaining -= chunk;
++                    }
++                    persistenceStream.Flush();
++                    this.NoisyLog("Persisted {0} bytes of memory to backing file {1}.", size, persistenceFile);
++                }
++                catch(Exception e)
++                {
++                    this.Log(LogLevel.Warning, "Failed to persist memory to backing file {0}: {1}", persistenceFile, e.Message);
++                }
++            }
++        }
++
++        // Mirror a guest write to the backing file at the same offset (write-through).
++        // Called from the write hot path only when persistence is enabled.
++        private void PersistWriteThrough(long offset, byte[] array, int startingIndex, int count)
++        {
++            if(persistenceStream == null || disposed)
++            {
++                return;
++            }
++            lock(persistenceLock)
++            {
++                try
++                {
++                    persistenceStream.Seek(offset, SeekOrigin.Begin);
++                    persistenceStream.Write(array, startingIndex, count);
++                    // Do not Flush() per write -- rely on the OS page cache; a full
++                    // Flush happens on Reset()/Dispose(). This keeps the ~200k dword
++                    // writes of a firmware flash cheap while still landing on disk.
++                }
++                catch(Exception e)
++                {
++                    this.Log(LogLevel.Warning, "Backing-file write-through failed at 0x{0:X}: {1}", offset, e.Message);
++                }
++            }
++        }
++
++        private void OpenPersistenceStream()
++        {
++            if(persistenceFile == null)
++            {
++                return;
++            }
++            try
++            {
++                // Keep the file open read/write for the lifetime of the memory so we
++                // can mirror writes as they happen. Ensure it is at least `size` long.
++                persistenceStream = new FileStream(persistenceFile, FileMode.OpenOrCreate,
++                    FileAccess.ReadWrite, FileShare.Read);
++                if(persistenceStream.Length < size)
++                {
++                    persistenceStream.SetLength(size);
++                }
++            }
++            catch(Exception e)
++            {
++                this.Log(LogLevel.Warning, "Could not open backing file {0} for write-through: {1}", persistenceFile, e.Message);
++                persistenceStream = null;
++            }
++        }
++
++        private void LoadPersistence()
++        {
++            if(persistenceFile == null || !File.Exists(persistenceFile))
++            {
++                return;
++            }
++            try
++            {
++                using(var stream = new FileStream(persistenceFile, FileMode.Open, FileAccess.Read))
++                {
++                    long remaining = Math.Min(size, stream.Length);
++                    long offset = 0;
++                    var window = new byte[PersistenceWindow];
++                    while(remaining > 0)
++                    {
++                        var chunk = (int)Math.Min(PersistenceWindow, remaining);
++                        var read = stream.Read(window, 0, chunk);
++                        if(read <= 0)
++                        {
++                            break;
++                        }
++                        WriteBytes(offset, window, 0, read);
++                        offset += read;
++                        remaining -= read;
++                    }
++                }
++                this.NoisyLog("Loaded backing file {0} into memory ({1} bytes region).", persistenceFile, size);
++            }
++            catch(Exception e)
++            {
++                this.Log(LogLevel.Warning, "Failed to load memory backing file {0}: {1}", persistenceFile, e.Message);
++            }
++        }
++
+         public void Load(PrimitiveReader reader)
+         {
+             // checking magic
+@@ -226,6 +368,14 @@ public void Reset()
+             // to have deterministic behaviour (i.e. given script executed two times will
+             // give the same results; not zeroing during reset will however is not necessary
+             // (starting values are not random anyway)
++
++            // For a disk-backed (non-volatile) memory, flush to the backing file on
++            // every machine reset. This models NVM correctly across the guest's own
++            // reboots (e.g. the Flipper OTA updater reboots several times mid-update):
++            // the freshly programmed contents are committed at each reboot, so they
++            // survive even if the emulator process is later killed abruptly rather
++            // than disposed cleanly. Reset is infrequent, so the 1 MB write is cheap.
++            FlushPersistence();
+         }
+ 
+         public void LoadFileChunks(string path, IEnumerable<FileChunk> chunks, IPeripheral cpu)
+@@ -258,6 +408,11 @@ public void WriteBytes(long offset, byte[] array, int startingIndex, int count,
+ 
+                 InvalidateMemoryFragment(currentOffset, length);
+             }
++
++            if(persistenceStream != null)
++            {
++                PersistWriteThrough(offset, array, startingIndex, count);
++            }
+         }
+ 
+         public void ZeroRange(long rangeStart, long rangeLength)
+@@ -317,6 +472,10 @@ public void WriteQuadWord(long offset, ulong value)
+             {
+                 Marshal.WriteInt64(new IntPtr(segment.ToInt64() + localOffset), unchecked((long)value));
+                 InvalidateMemoryFragment(offset, sizeof(ulong));
++                if(persistenceStream != null)
++                {
++                    PersistWriteThrough(offset, BitConverter.GetBytes(value), 0, sizeof(ulong));
++                }
+             }
+         }
+ 
+@@ -352,12 +511,16 @@ public void WriteDoubleWord(long offset, uint value)
+             {
+                 var bytes = BitConverter.GetBytes(value);
+                 WriteBytes(offset, bytes);
+-                // the memory will be invalidated by `WriteBytes`
++                // the memory will be invalidated by `WriteBytes` (and persisted there)
+             }
+             else
+             {
+                 Marshal.WriteInt32(new IntPtr(segment.ToInt64() + localOffset), unchecked((int)value));
+                 InvalidateMemoryFragment(offset, sizeof(uint));
++                if(persistenceStream != null)
++                {
++                    PersistWriteThrough(offset, BitConverter.GetBytes(value), 0, sizeof(uint));
++                }
+             }
+         }
+ 
+@@ -403,6 +566,10 @@ public void WriteWord(long offset, ushort value)
+                 Marshal.WriteInt16(new IntPtr(segment.ToInt64() + localOffset), unchecked((short)value));
+                 InvalidateMemoryFragment(offset, sizeof(ushort));
+             }
++            if(persistenceStream != null)
++            {
++                PersistWriteThrough(offset, BitConverter.GetBytes(value), 0, sizeof(ushort));
++            }
+         }
+ 
+         public ushort ReadWord(long offset)
+@@ -438,6 +605,10 @@ public void WriteByte(long offset, byte value)
+             var segment = segments[GetSegmentNo(offset)];
+             Marshal.WriteByte(new IntPtr(segment.ToInt64() + localOffset), value);
+             InvalidateMemoryFragment(offset, 1);
++            if(persistenceStream != null)
++            {
++                PersistWriteThrough(offset, new byte[] { value }, 0, 1);
++            }
+         }
+ 
+         public byte ReadByte(long offset)
+@@ -611,6 +782,20 @@ private void Free()
+         {
+             if(!disposed)
+             {
++                // Flush and close the write-through backing file.
++                if(persistenceStream != null)
++                {
++                    try
++                    {
++                        FlushPersistence();
++                        persistenceStream.Dispose();
++                    }
++                    catch(Exception e)
++                    {
++                        this.Log(LogLevel.Warning, "Error closing backing file {0}: {1}", persistenceFile, e.Message);
++                    }
++                    persistenceStream = null;
++                }
+                 if(UsingSharedMemory)
+                 {
+                     for(var i = 0; i < segments.Length; i++)
+@@ -765,6 +950,9 @@ private List<long> GetRegistrationPoints()
+         private bool disposed;
+         private long size;
+         private readonly string sharedMemoryFileRoot;
++        private readonly string persistenceFile;
++        private FileStream persistenceStream;
++        private readonly object persistenceLock = new object();
+ 
+         private readonly bool emptyCtorUsed;
+         private readonly IMachine machine;
+@@ -774,6 +962,7 @@ private List<long> GetRegistrationPoints()
+         private const int MinimalSegmentSize = 64 * 1024;
+         private const int MaximalSegmentSize = 16 * 1024 * 1024;
+         private const int RecommendedNumberOfSegments = 16;
++        private const int PersistenceWindow = 128 * 1024;
+ 
+         private class MappedSegment : IMappedSegment
+         {

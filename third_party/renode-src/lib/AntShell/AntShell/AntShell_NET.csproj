@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	  <Deterministic>false</Deterministic>
+    <AssemblyName>AntShell</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Migrant\Migrant\Migrant_NET.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Terminal\ActiveDetachableIO.cs" />
+    <Compile Remove="Terminal\PassiveDetachableIO.cs" />
+    <Compile Remove="Terminal\StreamTerminalIOSource.cs" />
+  </ItemGroup>
+</Project>

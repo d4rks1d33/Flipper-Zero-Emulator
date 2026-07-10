@@ -1,0 +1,119 @@
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xE0
+    systickFrequency: 61440000
+    IRQ -> cpu@0
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    nvic: nvic
+
+uart: UART.PL011 @ sysbus 0x40010000
+    -> intrCtrl@7
+
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 72000000
+
+spt: Timers.EOSS3_SimplePeriodicTimer @ sysbus 0x40005C00
+
+m4mem: Memory.MappedMemory @ {
+    sysbus 0x0;
+    sysbus 0x20000000 //mirror
+    }
+    size: 0x80000
+
+intrCtrl: IRQControllers.EOSS3_IntrCtrl @ {
+        sysbus 0x40004800;
+        sysbus new Bus.BusMultiRegistration { address: 0x40005100; size: 0x8; region: "misc" };
+        sysbus new Bus.BusMultiRegistration { address: 0x40004C00; size: 0x200; region: "iomux" }
+    } {
+    // we have to use braces to split this very long single line
+    [
+        SoftwareIrq2, SoftwareIrq1, /* Reserved1, */ FFE0MessageIrq, FabricIrq, GPIOIrq, SRAMIrq, UARTIrq, TimerIrq,
+        WatchdogIrq, WatchdogResetIrq, BusTimeoutIrq, FPUIrq, PacketFIFOIrq, ReservedI2SIrq, ReservedAudioIrq,
+        SPIMasterIrq, ConfigDMAIrq, PMUTimerIrq, ADCIrq, RTCIrq, ResetIrq, FFE0Irq, WatchdogFFEIrq, ApBootIrq,
+        LDO30Irq, LDO50Irq, ReservedSRAMIrq, LPSDIrq, DMicIrq
+    ]
+        -> nvic@[0, 1, 3-29] // 2 is reserved and not named, so we don't connect it at all
+    }
+
+adc: Analog.EOSS3_ADC @ sysbus 0x40005A00
+
+spi: SPI.DesignWare_SPI @ sysbus 0x40007000
+    transmitDepth: 128
+    receiveDepth: 128
+    -> dmaSpi@0
+
+dmaSpi: DMA.EOSS3_SPI_DMA @ sysbus 0x40007400
+    -> intrCtrl@17
+    spi: spi
+
+packetFifo: Miscellaneous.EOSS3_PacketFIFO @ sysbus 0x40002000
+    -> intrCtrl@13
+
+systemDma: DMA.UDMA @ sysbus 0x4000C000
+    numberOfChannels: 16
+
+systemDmaBridge: DMA.EOSS3_SystemDMABridge @ sysbus 0x4000D000
+    systemDma: systemDma
+
+systemDmaSram: Memory.MappedMemory @ sysbus 0x4000F000
+    size: 0x1000
+
+ffe: Miscellaneous.EOSS3_FlexibleFusionEngine @ sysbus 0x4004A000
+
+i2cMaster0: I2C.OpenCoresI2C @ ffe 0
+
+i2cMaster1: I2C.OpenCoresI2C @ ffe 1
+
+voice: Sound.EOSS3_Voice @ sysbus 0x40015000
+    -> nvic@45
+
+powerMgmt: Python.PythonPeripheral @ sysbus 0x40004400
+    size: 0x400
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+sysbus:
+    init:
+        Tag <0x40005400, 0x4000549F> "AnalogIP" 0x0
+        Tag <0x400054A0, 0x400057FF> "AnalogIP (unlocked)" 0x1
+
+        Tag <0x40004400, 0x4000446F> "PowerManagementUnit 1/6" 0x1
+        Tag <0x40004470, 0x4000448F> "PowerManagementUnit 2/6" 0x0
+        Tag <0x40004490, 0x400044AF> "PowerManagementUnit 3/6" 0x1
+        Tag <0x400044B0, 0x400044CF> "PowerManagementUnit 4/6" 0x0
+        Tag <0x400044D0, 0x400044E3> "PowerManagementUnit 5/6" 0x1
+        Tag <0x400044E4, 0x400047FF> "PowerManagementUnit 6/6" 0x2b
+
+        Tag <0x40004000, 0x400043FF> "Clock (CRU)" 0x1
+
+        Tag <0x40000000, 0x400000FF> "M4_Regs"
+        Tag <0x40002000, 0x40003FFF> "Packet FIFO Bank"
+        Tag <0x40004C00, 0x40004FFF> "IO_Mux"
+        Tag <0x40005000, 0x400053FF> "Misc"
+        Tag <0x40005A00, 0x40005BFF> "JTM"
+        Tag <0x40006000, 0x40006FFF> "A1_Regs"
+        Tag <0x40008000, 0x400083FF> "eFuse"
+        Tag <0x4000B000, 0x4000BFFF> "I2S_Slave"
+        Tag <0x4000C000, 0x4000CFFF> "SDMA"
+        Tag <0x4000D000, 0x4000DFFF> "SDMA_Bridge"
+        Tag <0x4000F000, 0x4000FFFF> "SDMA_SRAM"
+        Tag <0x40012000, 0x40012FFF> "WDT"
+        Tag <0x40013000, 0x40013FFF> "Timer"
+        Tag <0x40014000, 0x40014FFF> "CFG_CTL_TOP (PIF Controller)"
+        Tag <0x40018000, 0x40018FFF> "RAMFIFO0"
+        Tag <0x40019000, 0x40019FFF> "RAMFIFO1"
+        Tag <0x4001A000, 0x4001AFFF> "RAMFIFO2"
+        Tag <0x4001B000, 0x4001BFFF> "RAMFIFO3"
+        Tag <0x40020000, 0x4003FFFF> "Fabric"
+
+        Tag <0x40040000, 0x40043FFF> "FFE_DM0" 0x10000
+
+        Tag <0x40044000, 0x40047FFF> "FFE_SM0"
+        Tag <0x40048000, 0x40049FFF> "FFE_SM1"
+        Tag <0x4004A000, 0x4004BFFF> "FFE_ExtRegs"
+        Tag <0x40050000, 0x4007FFFF> "FFE_CM"
+        Tag <0xE0000000, 0xE0000FFF> "M4_ITM"
+        Tag <0xE0002000, 0xE0002FFF> "M4_FBP"
+        Tag <0xE0040000, 0xE0040FFF> "M4_TPIU"
+        Tag <0xE00FF000, 0xE00FFFFF> "M4_DAP"

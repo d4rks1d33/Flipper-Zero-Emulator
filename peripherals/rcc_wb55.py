@@ -76,4 +76,55 @@ elif request.IsRead:
     request.Value = val
 
 elif request.IsWrite:
-    regs[request.Offset] = request.Value
+    off = request.Offset
+    regs[off] = request.Value
+
+    # --- APB1RSTR1 (0x38): peripheral reset register ---
+    # The Flipper tickless-idle path stops LPTIM1 with furi_hal_bus_reset(LPTIM1)
+    # = a pulse on RCC APB1RSTR1 bit 31 (LPTIM1RST). On real silicon that reset
+    # clears the LPTIM peripheral, dropping its (level) interrupt line. Our RCC is
+    # a stub that just stores registers, so the reset never reached the LPTIM1
+    # model: its CMPM/ARRM flag stayed set and its NVIC line stayed ASSERTED. The
+    # firmware sleeps with IRQs masked (PRIMASK=1) and has NO ISR registered for
+    # LPTIM1 (it clears the flag inline); when it re-enables IRQs the still-
+    # asserted LPTIM1 line fires LPTIM1_IRQHandler -> furi_hal_interrupt_call with
+    # no handler -> furi_check crash + reboot. (This only surfaced once the EXTI
+    # PR1 fix let the system actually reach tickless-idle.)
+    #
+    # Faithfully emulate the peripheral reset (FIX B): when LPTIM1RST is
+    # asserted, fully STOP the LPTIM1 model, not just clear its flags.
+    #
+    # Why clearing ICR alone was not enough: the Renode STM32L0_LpTimer model
+    # runs an internal `compareTimer` (one-shot LimitTimer). Writing ICR clears
+    # the latched CMPM/ARRM status flags and calls UpdateInterrupts() (lowering
+    # IRQ), but the compareTimer is still ENABLED. It keeps counting and, on the
+    # next LimitReached, re-sets compareMatchInterruptStatus and re-asserts the
+    # IRQ line -> the [CRASH][ISR LPTIM1] reappears on the next idle cycle.
+    #
+    # In the model, writing CR (0x10) with ENABLE=0 executes the "Disabling
+    # timer" branch: this.Enabled=false AND compareTimer.Enabled=false, which
+    # halts both timers so they can no longer re-assert the interrupt. That CR
+    # write does NOT itself call UpdateInterrupts(), so we then write ICR=0x1F
+    # to clear all latched status flags -- and ICR has a WithWriteCallback that
+    # calls UpdateInterrupts(), which drops the IRQ line to false. Finally we
+    # write IER=0 to disable all interrupt-enable bits (also keeps UpdateInterrupts
+    # producing false even if a flag were somehow set again).
+    #
+    # Order matters: CR=0 (stop timers) -> ICR=0x1F (clear flags + lower IRQ)
+    # -> IER=0 (mask interrupts).
+    if off == 0x38 and (request.Value & (1 << 31)):
+        try:
+            import System
+            sysbus = self.GetMachine().SystemBus
+            # 1. CR (0x40007C10) = 0: ENABLE=0 -> stop LPTIM + its compareTimer.
+            sysbus.WriteDoubleWord(
+                System.UInt64(0x40007C10), System.UInt32(0x00000000))
+            # 2. ICR (0x40007C04) = 0x1F: clear CMPMCF|ARRMCF|EXTTRIGCF|CMPOKCF|
+            #    ARROKCF; its write callback runs UpdateInterrupts() -> IRQ low.
+            sysbus.WriteDoubleWord(
+                System.UInt64(0x40007C04), System.UInt32(0x0000001F))
+            # 3. IER (0x40007C08) = 0: disable all interrupt-enable bits.
+            sysbus.WriteDoubleWord(
+                System.UInt64(0x40007C08), System.UInt32(0x00000000))
+        except Exception as e:
+            self.WarningLog("RCC: LPTIM1 reset stop failed: %s" % str(e))

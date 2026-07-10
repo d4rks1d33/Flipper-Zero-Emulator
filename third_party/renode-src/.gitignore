@@ -1,0 +1,28 @@
+output
+obj
+bin
+
+*.pyc
+*.swp
+.vs
+*.userprefs
+.gdb_history
+
+# robot test result files
+output.xml
+report.html
+log.html
+
+#resources
+.renode_libs_fetched
+lib/resources/
+src/Renode/Properties/AssemblyInfo.cs
+packages
+/Directory.Build.targets
+
+#verilator trace files
+*.vcd
+
+perf.data
+perf.script
+.venv

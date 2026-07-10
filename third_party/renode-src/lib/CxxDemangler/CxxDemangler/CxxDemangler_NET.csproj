@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Deterministic>false</Deterministic>
+    <AssemblyName>CxxDemangler</AssemblyName>
+  </PropertyGroup>
+</Project>

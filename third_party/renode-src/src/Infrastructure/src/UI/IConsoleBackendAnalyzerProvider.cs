@@ -1,0 +1,35 @@
+//
+// Copyright (c) 2010-2025 Antmicro
+//
+// This file is licensed under the MIT License.
+// Full license text is available in 'licenses/MIT.txt'.
+//
+using System;
+
+using Antmicro.Renode.Utilities;
+
+using AntShell.Terminal;
+
+namespace Antmicro.Renode.UI
+{
+    public interface IConsoleBackendAnalyzerProvider : IAutoLoadType
+    {
+        bool TryOpen(string consoleName, out IIOSource io, bool isMonitorWindow = false);
+
+        void Close();
+
+        void Clear();
+
+        event Action OnClose;
+    }
+
+    public class ConsoleBackendAnalyzerProviderAttribute : Attribute
+    {
+        public ConsoleBackendAnalyzerProviderAttribute(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; private set; }
+    }
+}

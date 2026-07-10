@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <RollForward>Major</RollForward>
+    <RootNamespace>Antmicro.OptionsParser.Tests</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>OptionsParserTests</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="3.13.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" /> 
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="OptionsParser_NET.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Tests\ParserTests.cs" />
+    <Compile Include="Tests\ValidationTests.cs" />
+  </ItemGroup>
+</Project>

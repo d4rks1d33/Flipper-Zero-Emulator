@@ -1,0 +1,139 @@
+using "./renesas-r7fa2e1a9.repl"
+
+code_flash:
+    size: 0x40000
+
+data_flash:
+    size: 0x2000
+
+sram: @ sysbus 0x20000000
+    size: 0x8000
+
+port0:
+    numberOfConnections: 15
+
+port1:
+    numberOfConnections: 16
+
+port3:
+    numberOfConnections: 8
+
+port5:
+    numberOfConnections: 6
+
+port6: GPIOPort.RenesasRA2_GPIO @ {
+        sysbus 0x400400C0;
+        sysbus new Bus.BusMultiRegistration { address: 0x40040980; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x6
+    numberOfConnections: 11
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port7: GPIOPort.RenesasRA2_GPIO @ {
+        sysbus 0x400400E0;
+        sysbus new Bus.BusMultiRegistration { address: 0x400409C0; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x7
+    numberOfConnections: 15
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+port8: GPIOPort.RenesasRA2_GPIO @ {
+        sysbus 0x40040100;
+        sysbus new Bus.BusMultiRegistration { address: 0x40040A00; size: 0x40; region: "pinConfiguration" }
+    }
+    portNumber: 0x8
+    numberOfConnections: 10
+    pfsMisc: portMisc
+
+    IRQ0 -> icu@1
+    IRQ1 -> icu@2
+    IRQ2 -> icu@3
+    IRQ3 -> icu@4
+    IRQ4 -> icu@5
+    IRQ5 -> icu@6
+    IRQ6 -> icu@7
+    IRQ7 -> icu@8
+    IRQ8 -> icu@9
+    IRQ9 -> icu@10
+    IRQ10 -> icu@11
+    IRQ11 -> icu@12
+    IRQ12 -> icu@13
+    IRQ13 -> icu@14
+    IRQ14 -> icu@15
+    IRQ15 -> icu@16
+
+// Removing PORT9 as it's not present in RA2L1
+port9: @ none
+
+gpt:
+    [0x09-0x0C] -> icu@[0x4C-0x4F]
+    // GPT1 CMPE and CMPF are not connected
+    [0x0F-0x10] -> icu@[0x50-0x51]
+    // GPT1 PC is not connected
+    [0x12-0x15] -> icu@[0x52-0x55]
+    // GPT2 CMPE and CMPF are not connected
+    [0x18-0x19] -> icu@[0x56-0x57]
+    // GPT2 PC is not connected
+    [0x1B-0x1E] -> icu@[0x58-0x5B]
+    // GPT3 CMPE and CMPF are not connected
+    [0x21-0x22] -> icu@[0x5C-0x5D]
+    // GPT3 PC is not connected
+
+sci3: SCI.RenesasRA6M5_SCI @ sysbus 0x40070060
+    frequency: 32000000
+    enableManchesterMode: false
+    enableFIFO: false
+    fullModel: false
+    ReceiveIRQ -> icu@0x93
+    TransmitIRQ -> icu@0x94
+    TransmitEndIRQ -> icu@0x95
+
+iic1: I2C.RenesasRA_IIC @ sysbus 0x40053100
+    ReceiveIRQ -> icu@0x2C
+    TransmitIRQ -> icu@0x2D
+    TransmitEndIRQ -> icu@0x2E
+    ErrorOrEventIRQ -> icu@0x2F
+
+sysbus:
+    init add:
+        RemoveTag 0x40002000 // Updating "SRAM" due to differences between RA2E1 and RA2L1
+        Tag <0x40002000,0x400020db> "SRAM" // SRAM Control
+        Tag <0x40050000,0x40050877> "CAN0" // Controller Area Network
+        RemoveTag 0x4005c000 // Updating "ADC120" due to differences between RA2E1 and RA2L1
+        Tag <0x4005c000,0x4005c0f7> "ADC120" // 12-bit A/D Converter
+        Tag <0x4005e000,0x4005e00b> "DAC12" // 12-bit D/A converter
+        Tag <0x40072100,0x40072113> "SPI1" // Serial Peripheral Interface 0

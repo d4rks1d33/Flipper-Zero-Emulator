@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{C56AABEF-C01E-493F-A65F-09A572FE9B2E}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Antmicro.OptionsParser</RootNamespace>
+    <AssemblyName>OptionsParser</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>full</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Parser\CommandLineOption.cs" />
+    <Compile Include="Parser\IFlag.cs" />
+    <Compile Include="Parser\PositionalArgument.cs" />
+    <Compile Include="Parser\Token.cs" />
+    <Compile Include="Parser\Tokenizer.cs" />
+    <Compile Include="Parser\ParseHelper.cs" />
+    <Compile Include="Validation\RequiredAttribute.cs" />
+    <Compile Include="Description\NameAttribute.cs" />
+    <Compile Include="Description\AliasAttribute.cs" />
+    <Compile Include="Description\DescriptionAttribute.cs" />
+    <Compile Include="Validation\DefaultValueAttribute.cs" />
+    <Compile Include="Validation\ValidationException.cs" />
+    <Compile Include="Help\HelpOption.cs" />
+    <Compile Include="Parser\ElementDescriptor.cs" />
+    <Compile Include="Help\ApplicationInfo.cs" />
+    <Compile Include="Parser\ParserConfiguration.cs" />
+    <Compile Include="Validation\IValidatedOptions.cs" />
+    <Compile Include="Parser\OptionsParser.cs" />
+    <Compile Include="Description\PositionalArgumentAttribute.cs" />
+    <Compile Include="Description\NumberOfElementsAttribute.cs" />
+    <Compile Include="Description\DelimiterAttribute.cs" />
+    <Compile Include="Parser\CommandLineOptionDescriptor.cs" />
+    <Compile Include="Parser\IParsedArgument.cs" />
+    <Compile Include="Parser\IUnexpectedArgument.cs" />
+    <Compile Include="Parser\UnexpectedArgument.cs" />
+    <Compile Include="Description\HideAttribute.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Folder Include="Validation\" />
+    <Folder Include="Description\" />
+    <Folder Include="Help\" />
+  </ItemGroup>
+</Project>

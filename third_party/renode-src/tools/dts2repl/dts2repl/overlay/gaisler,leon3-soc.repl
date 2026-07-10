@@ -1,0 +1,4 @@
+timer0:
+    numberOfTimers: 2
+    frequency: 50000000
+    separateInterrupts: false

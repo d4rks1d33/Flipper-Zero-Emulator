@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{D4F75C6D-04F5-4584-9FFD-2BC2EE3152D5}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AntShellDemo</RootNamespace>
+    <AssemblyName>AntShellDemo</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x86</PlatformTarget>
+    <ConsolePause>false</ConsolePause>
+    <Externalconsole>true</Externalconsole>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Externalconsole>true</Externalconsole>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="Mono.Posix" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Command\AddCommand.cs" />
+    <Compile Include="AntCalc.cs" />
+    <Compile Include="Pty.cs" />
+    <Compile Include="Calculator.cs" />
+    <Compile Include="Command\PrintCommand.cs" />
+    <Compile Include="Command\AskCommand.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\AntShell\AntShell.csproj">
+      <Project>{0A473566-F4C6-455E-A56E-B3963FBABDFF}</Project>
+      <Name>AntShell</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Command\" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <MonoDevelop>
+      <Properties>
+        <Policies>
+          <DotNetNamingPolicy DirectoryNamespaceAssociation="PrefixedHierarchical" ResourceNamePolicy="FileName" />
+          <TextStylePolicy FileWidth="120" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="VisualStudio" inheritsScope="text/plain" scope="text/x-csharp" />
+          <TextStylePolicy FileWidth="120" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="VisualStudio" inheritsScope="text/plain" scope="text/plain" />
+          <TextStylePolicy FileWidth="120" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="VisualStudio" inheritsScope="text/plain" scope="application/t4-template" />
+          <CSharpFormattingPolicy NewLinesForBracesInProperties="True" NewLinesForBracesInAccessors="True" NewLinesForBracesInAnonymousMethods="True" NewLinesForBracesInControlBlocks="True" NewLinesForBracesInAnonymousTypes="True" NewLinesForBracesInObjectCollectionArrayInitializers="True" NewLinesForBracesInLambdaExpressionBody="True" NewLineForElse="True" NewLineForCatch="True" NewLineForFinally="True" NewLineForMembersInObjectInit="True" NewLineForMembersInAnonymousTypes="True" NewLineForClausesInQuery="True" SpacingAfterMethodDeclarationName="False" SpaceAfterMethodCallName="False" SpaceAfterControlFlowStatementKeyword="False" SpaceBeforeOpenSquareBracket="False" inheritsSet="Mono" inheritsScope="text/x-csharp" scope="text/x-csharp" />
+          <StandardHeader Text="*******************************************************************&#xA;&#xA; Copyright (c) 2013-2014, Antmicro Ltd &lt;antmicro.com&gt;&#xA;&#xA;Permission is hereby granted, free of charge, to any person obtaining&#xA;a copy of this software and associated documentation files (the&#xA;&quot;Software&quot;), to deal in the Software without restriction, including&#xA;without limitation the rights to use, copy, modify, merge, publish,&#xA;distribute, sublicense, and/or sell copies of the Software, and to&#xA;permit persons to whom the Software is furnished to do so, subject to&#xA;the following conditions:&#xA;&#xA;The above copyright notice and this permission notice shall be&#xA;included in all copies or substantial portions of the Software.&#xA;&#xA;THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,&#xA;EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF&#xA;MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND&#xA;NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE&#xA;LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION&#xA;OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION&#xA;WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.&#xA;&#xA;*******************************************************************" IncludeInNewFiles="True" />
+        </Policies>
+      </Properties>
+    </MonoDevelop>
+  </ProjectExtensions>
+</Project>

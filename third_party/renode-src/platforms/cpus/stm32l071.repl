@@ -1,0 +1,241 @@
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m0+"
+    nvic: nvic
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 32000000
+    IRQ -> cpu@0
+
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x5000
+
+exti: IRQControllers.STM32F4_EXTI @ sysbus 0x40010400
+    numberOfOutputLines: 30
+    firstDirectLine: 23
+    [0, 1] -> nvicInput5@[0, 1]
+    [2, 3] -> nvicInput6@[0, 1]
+    [4-15] -> nvicInput7@[0-11]
+    [16, 23, 25, 26, 28, 29] -> nvic@[1, 23, 27, 28, 29, 13]
+    [17, 19, 20] -> nvicInput2@[0-2]
+    [21, 22] -> nvicInput12@[0-1]
+
+nvicInput5: Miscellaneous.CombinedInput
+    numberOfInputs: 2
+    -> nvic@5
+
+nvicInput6: Miscellaneous.CombinedInput
+    numberOfInputs: 2
+    -> nvic@6
+
+nvicInput7: Miscellaneous.CombinedInput
+    numberOfInputs: 12
+    -> nvic@7
+
+nvicInput2: Miscellaneous.CombinedInput
+    numberOfInputs: 3
+    -> nvic@2
+
+nvicInput12: Miscellaneous.CombinedInput
+    numberOfInputs: 2
+    -> nvic@12
+
+adc1: Analog.STM32_ADC @ sysbus 0x40012400
+    IRQ->nvic@12
+
+gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x50000000, +0x400>
+    modeResetValue: 0xEBFFFCFF
+    pullUpPullDownResetValue: 0x24000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x50000400, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x50000800, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortD: GPIOPort.STM32_GPIOPort @ sysbus <0x50000C00, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortH: GPIOPort.STM32_GPIOPort @ sysbus <0x50001C00, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+gpioPortE: GPIOPort.STM32_GPIOPort @ sysbus <0x50001000, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    pullUpPullDownResetValue: 0x00000000
+    numberOfAFs: 8
+    [0-15] -> exti@[0-15]
+
+i2c1: I2C.STM32F7_I2C @ sysbus 0x40005400
+    EventInterrupt -> exti@23
+
+i2c2: I2C.STM32F7_I2C @ sysbus 0x40005800
+    EventInterrupt -> nvic@24
+
+i2c3: I2C.STM32F7_I2C @ sysbus 0x40007800
+    EventInterrupt -> nvic@21
+
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x30000
+
+eeprom: Memory.MappedMemory @ sysbus 0x08080000
+    size: 0x1800
+
+flashController: MTD.STM32L0_FlashController @ {
+        sysbus 0x40022000;
+        sysbus new Bus.BusMultiRegistration { address: 0x1FF80000; size: 0x100; region: "signature" }
+    }
+    flash: flash
+    eeprom: eeprom
+
+rcc: Miscellaneous.STM32L0_RCC @ sysbus 0x40021000
+    rtc: rtc
+    lptimer: lptim1
+    systick: nvic
+
+rtc: Timers.STM32F4_RTC @ sysbus 0x40002800
+    AlarmIRQ -> exti@17
+    WakeupIRQ -> exti@20
+
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+    bufferCapacity: 1
+    IRQ ->nvic@25
+
+spi2: SPI.STM32SPI @ sysbus 0x40003800
+    bufferCapacity: 1
+    IRQ ->nvic@26
+
+timer2: Timers.STM32_Timer @ sysbus 0x40000000
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    ->nvic@15
+
+timer3: Timers.STM32_Timer @ sysbus 0x40000400
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    ->nvic@16
+
+timer21: Timers.STM32_Timer @ sysbus 0x40010800
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    ->nvic@20
+
+timer22: Timers.STM32_Timer @ sysbus 0x40011400
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    ->nvic@22
+
+timer6: Timers.STM32_Timer @ sysbus 0x40001000
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    ->nvic@17
+
+timer7: Timers.STM32_Timer @ sysbus 0x40001400
+    frequency: 10000000
+    initialLimit: 0xFFFF
+    ->nvic@18
+
+usart2: UART.STM32F7_USART @ sysbus 0x40004400
+    frequency: 200000000
+    IRQ -> exti@26
+
+usart1: UART.STM32F7_USART @ sysbus 0x40013800
+    frequency: 200000000
+    IRQ -> exti@25
+
+lpuart1: UART.STM32F7_USART @ sysbus 0x40004800
+    frequency: 200000000
+    lowPowerMode: true
+    IRQ -> exti@28
+
+usart4: UART.STM32F7_USART @ sysbus 0x40004C00
+    frequency: 200000000
+    IRQ -> nvicInput14@0
+
+usart5: UART.STM32F7_USART @ sysbus 0x40005000
+    frequency: 200000000
+    IRQ -> nvicInput14@1
+
+nvicInput14: Miscellaneous.CombinedInput
+    numberOfInputs: 2
+    -> nvic@14
+
+iwdg: Timers.STM32_IndependentWatchdog @ sysbus 0x40003000
+    frequency: 32000
+    windowOption: true
+    defaultPrescaler: 0x0
+
+nvicInput10: Miscellaneous.CombinedInput
+    numberOfInputs: 2
+    -> nvic@10
+
+nvicInput11: Miscellaneous.CombinedInput
+    numberOfInputs: 4
+    -> nvic@11
+
+dma1: DMA.STM32G0DMA @ sysbus 0x40020000
+    numberOfChannels: 7
+    0 -> nvic@9
+    [1, 2] -> nvicInput10@[0, 1]
+    [3-6] -> nvicInput11@[0-3]
+
+pwr: Miscellaneous.STM32L0_PWR @ sysbus 0x40007000
+    -> exti@16
+
+lptim1: Timers.STM32L0_LpTimer @ sysbus 0x40007C00
+    frequency: 0x1000000
+    -> exti@29
+
+crc: CRC.STM32_CRC @ sysbus 0x40023000
+    series: STM32Series.F0
+    configurablePoly: true
+
+// The SYSCFG region is defined as memory mainly so that software can read/write
+// values from the EXTICR registers. They currently have no effect in Renode.
+syscfg: Memory.MappedMemory @ sysbus 0x40010000
+    size: 0x400
+
+// Alternate function connections
+// The syntax is:
+//     alternateFunctionOutput -> gpioPort#pinNumber@AFNumber
+// Meaning `1 -> gpioPortA#2@0` connects output 1 to pin 2 of GPIO port A as AF 0
+timer2:
+    0 -> gpioPortA#00@2 | gpioPortA#05@5 | gpioPortA#15@5 | gpioPortE#09@0
+    1 -> gpioPortA#01@2 | gpioPortB#03@2 | gpioPortE#10@0
+    2 -> gpioPortA#02@2 | gpioPortB#10@2 | gpioPortE#11@0
+    3 -> gpioPortA#03@2 | gpioPortB#11@2 | gpioPortE#12@0
+
+timer3:
+    0 -> gpioPortA#06@2 | gpioPortB#04@2 | gpioPortC#06@2 | gpioPortE#03@2
+    1 -> gpioPortA#07@2 | gpioPortB#05@2 | gpioPortC#07@2 | gpioPortE#04@2
+    2 -> gpioPortB#00@2 | gpioPortC#08@2 | gpioPortE#05@2
+    3 -> gpioPortB#01@2 | gpioPortC#09@2 | gpioPortE#06@2
+
+timer21:
+    0 -> gpioPortA#02@0 | gpioPortB#13@6 | gpioPortD#00@0 | gpioPortE#05@0
+    1 -> gpioPortA#03@0 | gpioPortB#14@6 | gpioPortD#07@1 | gpioPortE#06@0
+
+timer22:
+    0 -> gpioPortA#06@5 | gpioPortB#04@4 | gpioPortC#06@0 | gpioPortE#03@0
+    1 -> gpioPortA#07@5 | gpioPortB#05@4 | gpioPortC#07@0 | gpioPortE#04@0
+
+sysbus:
+    init:
+        Tag <0x40026000, 0x400263FF> "AES"
+        Tag <0x40015800, 0x40015BFF> "DBGMCU"
+        Tag <0x40011C00, 0x40011FFF> "Firewall"
+        Tag <0x40002C00, 0x40002FFF> "WWDG"
+        ApplySVD @https://dl.antmicro.com/projects/renode/svd/STM32L0x1.svd

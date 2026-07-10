@@ -1,0 +1,3 @@
+sysbus:
+    init add:
+        Tag <0x58000400 0x4> "PWR_CR1" 0xffffffff

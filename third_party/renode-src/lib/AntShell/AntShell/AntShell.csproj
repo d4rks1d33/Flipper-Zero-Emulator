@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{0A473566-F4C6-455E-A56E-B3963FBABDFF}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>AntShell</RootNamespace>
+    <AssemblyName>AntShell</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Commands\BuiltIn\HistoryCommand.cs" />
+    <Compile Include="Commands\BuiltIn\SaveCommmand.cs" />
+    <Compile Include="Commands\ICommand.cs" />
+    <Compile Include="Commands\ICommandInteraction.cs" />
+    <Compile Include="Shell.cs" />
+    <Compile Include="Prompt.cs" />
+    <Compile Include="Helpers\Position.cs" />
+    <Compile Include="Helpers\SequenceValidator.cs" />
+    <Compile Include="Helpers\ControlSequence.cs" />
+    <Compile Include="CommandLine.cs" />
+    <Compile Include="CommandHistory.cs" />
+    <Compile Include="CommandEditor.cs" />
+    <Compile Include="CommandInteraction.cs" />
+    <Compile Include="Terminal\VirtualCursor.cs" />
+    <Compile Include="Helpers\Helper.cs" />
+    <Compile Include="ShellSettings.cs" />
+    <Compile Include="ICommandHandler.cs" />
+    <Compile Include="Terminal\ITerminalHandler.cs" />
+    <Compile Include="Commands\BuiltIn\QuitCommand.cs" />
+    <Compile Include="Commands\BuiltIn\HelpCommand.cs" />
+    <Compile Include="Commands\BuiltIn\ColorsCommand.cs" />
+    <Compile Include="Commands\BuiltIn\CommandFromHistoryCommand.cs" />
+    <Compile Include="Commands\IOperator.cs" />
+    <Compile Include="Encoding\CustomDecoderFallback.cs" />
+    <Compile Include="Encoding\CustomDecoderFallbackBuffer.cs" />
+    <Compile Include="Commands\ICommandDescription.cs" />
+    <Compile Include="Commands\CommandBase.cs" />
+    <Compile Include="Commands\ISuggestionProvider.cs" />
+    <Compile Include="Terminal\BasicTerminalEmulator.cs" />
+    <Compile Include="Terminal\IPassiveIOSource.cs" />
+    <Compile Include="Terminal\IActiveIOSource.cs" />
+    <Compile Include="Terminal\IIOSource.cs" />
+    <Compile Include="Terminal\PAIOSourceConverter.cs" />
+    <Compile Include="Terminal\APIOSourceConverter.cs" />
+    <Compile Include="Terminal\NavigableTerminalEmulator.cs" />
+    <Compile Include="Terminal\StreamIOSource.cs" />
+    <Compile Include="Terminal\IOProvider.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Folder Include="Commands\" />
+    <Folder Include="Commands\BuiltIn\" />
+    <Folder Include="Terminal\" />
+    <Folder Include="Helpers\" />
+    <Folder Include="Encoding\" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <MonoDevelop>
+      <Properties>
+        <Policies>
+          <DotNetNamingPolicy DirectoryNamespaceAssociation="PrefixedHierarchical" ResourceNamePolicy="FileName" />
+          <TextStylePolicy FileWidth="120" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="VisualStudio" inheritsScope="text/plain" scope="text/x-csharp" />
+          <TextStylePolicy FileWidth="120" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="VisualStudio" inheritsScope="text/plain" scope="text/plain" />
+          <TextStylePolicy FileWidth="120" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="VisualStudio" inheritsScope="text/plain" scope="application/t4-template" />
+          <CSharpFormattingPolicy NewLinesForBracesInProperties="True" NewLinesForBracesInAccessors="True" NewLinesForBracesInAnonymousMethods="True" NewLinesForBracesInControlBlocks="True" NewLinesForBracesInAnonymousTypes="True" NewLinesForBracesInObjectCollectionArrayInitializers="True" NewLinesForBracesInLambdaExpressionBody="True" NewLineForElse="True" NewLineForCatch="True" NewLineForFinally="True" NewLineForMembersInObjectInit="True" NewLineForMembersInAnonymousTypes="True" NewLineForClausesInQuery="True" SpacingAfterMethodDeclarationName="False" SpaceAfterMethodCallName="False" SpaceAfterControlFlowStatementKeyword="False" SpaceBeforeOpenSquareBracket="False" inheritsSet="Mono" inheritsScope="text/x-csharp" scope="text/x-csharp" />
+          <StandardHeader Text="*******************************************************************&#xA;&#xA; Copyright (c) 2013-2014, Antmicro Ltd &lt;antmicro.com&gt;&#xA;&#xA;Permission is hereby granted, free of charge, to any person obtaining&#xA;a copy of this software and associated documentation files (the&#xA;&quot;Software&quot;), to deal in the Software without restriction, including&#xA;without limitation the rights to use, copy, modify, merge, publish,&#xA;distribute, sublicense, and/or sell copies of the Software, and to&#xA;permit persons to whom the Software is furnished to do so, subject to&#xA;the following conditions:&#xA;&#xA;The above copyright notice and this permission notice shall be&#xA;included in all copies or substantial portions of the Software.&#xA;&#xA;THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND,&#xA;EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF&#xA;MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND&#xA;NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE&#xA;LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION&#xA;OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION&#xA;WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.&#xA;&#xA;*******************************************************************" IncludeInNewFiles="True" />
+        </Policies>
+      </Properties>
+    </MonoDevelop>
+  </ProjectExtensions>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Migrant\Migrant\Migrant.csproj">
+      <Project>{5F87C357-09FB-4F53-BE37-41FE5BD88957}</Project>
+      <Name>Migrant</Name>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.21022</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{D1FEC3AA-A58B-4E14-AC50-5008E97D1BBC}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Test</AssemblyName>
+    <RootNamespace>Test</RootNamespace>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <OldToolsVersion>3.5</OldToolsVersion>
+    <UpgradeBackupLocation />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+    <Reference Include="log4net">
+      <HintPath>..\PacketDotNet\Libraries\log4net.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpPcap">
+      <HintPath>lib\SharpPcap\SharpPcap.dll</HintPath>
+    </Reference>
+    <Reference Include="nunit.framework">
+      <HintPath>lib\nunit.framework.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="PacketType\Ieee80211\CapabilityInformationFieldTest.cs" />
+    <Compile Include="PacketType\Ieee80211\ActionFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\BlockAcknowledgmentFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\AssociationResponseFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\AssociationRequestFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\AuthenticationFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\BlockAcknowledgmentRequestFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\DeauthenticationFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\BeaconFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\ContentionFreeEndFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\DataDataFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\DisassociationFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\FrameControlFieldTest.cs" />
+    <Compile Include="PacketType\Ieee80211\InformationElementTest.cs" />
+    <Compile Include="PacketType\Ieee80211\NullDataFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\PerPacketInformationTest.cs" />
+    <Compile Include="PacketType\Ieee80211\QosDataFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\QosNullDataFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\RadioPacketTest.cs" />
+    <Compile Include="PacketType\Ieee80211\RawPacketTest.cs" />
+    <Compile Include="PacketType\Ieee80211\ProbeRequestTest.cs" />
+    <Compile Include="PacketType\Ieee80211\ProbeResponseTest.cs" />
+    <Compile Include="Rate.cs" />
+    <Compile Include="ByteSetupMethods.cs" />
+    <Compile Include="NUnitSetupClass.cs" />
+    <Compile Include="LoggingConfiguration.cs" />
+    <Compile Include="Performance\BitConversionPerformance.cs" />
+    <Compile Include="Performance\ByteCopyPerformance.cs" />
+    <Compile Include="Misc\ConstructingPackets.cs" />
+    <Compile Include="Misc\ChecksumUtilsTest.cs" />
+    <Compile Include="Misc\PacketTest.cs" />
+    <Compile Include="Misc\StringOutput.cs" />
+    <Compile Include="PacketType\ArpPacketTest.cs" />
+    <Compile Include="PacketType\EthernetPacketTest.cs" />
+    <Compile Include="PacketType\ICMPv4PacketTest.cs" />
+    <Compile Include="PacketType\ICMPv6PacketTest.cs" />
+    <Compile Include="PacketType\IpPacketTest.cs" />
+    <Compile Include="PacketType\IPv4PacketTest.cs" />
+    <Compile Include="PacketType\IPv6PacketTest.cs" />
+    <Compile Include="PacketType\LinuxCookedCaptureTest.cs" />
+    <Compile Include="PacketType\PPPoEPPPTest.cs" />
+    <Compile Include="PacketType\TcpPacketTest.cs" />
+    <Compile Include="PacketType\UdpTest.cs" />
+    <Compile Include="PacketType\LldpTest.cs" />
+    <Compile Include="PacketType\WakeOnLanTest.cs" />
+    <Compile Include="PacketType\IGMPv2PacketTest.cs" />
+    <Compile Include="PacketType\PPPPacketTest.cs" />
+    <Compile Include="PacketType\Ieee80211\InformationElementListTest.cs" />
+    <Compile Include="PacketType\Ieee80211\MacFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\BlockAcknowledgmentControlFieldTest.cs" />
+    <Compile Include="PacketType\Ieee80211\ReassociationRequestFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\AckFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\CtsFrameTest.cs" />
+    <Compile Include="PacketType\Ieee80211\RadioTapFieldsTest.cs" />
+    <Compile Include="PacketType\Ieee80211\SequenceControlFieldTest.cs" />
+    <Compile Include="PacketType\Ieee80211\PpiFieldsTests.cs" />
+    <Compile Include="Performance\ByteRetrievalPerformance.cs" />
+    <Compile Include="Performance\GetSubPacketPerformance.cs" />
+    <Compile Include="PacketType\Vlan802_1QTest.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\PacketDotNet\PacketDotNet.csproj">
+      <Project>{55ABBA4C-AAF9-4726-A592-0C92436CEC92}</Project>
+      <Name>PacketDotNet</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="log4net.config" />
+  </ItemGroup>
+  <ItemGroup />
+</Project>

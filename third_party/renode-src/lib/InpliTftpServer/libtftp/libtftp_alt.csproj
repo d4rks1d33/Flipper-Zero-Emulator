@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{1B320B7A-BAB5-4370-9ABE-3BDAD4392BDD}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>libtftp</RootNamespace>
+    <AssemblyName>libtftp</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ETftpErrorType.cs" />
+    <Compile Include="ETftpLogSeverity.cs" />
+    <Compile Include="ETftpOperationType.cs" />
+    <Compile Include="ETftpPacketType.cs" />
+    <Compile Include="TftpGetStreamEventArgs.cs" />
+    <Compile Include="TftpLogEventArgs.cs" />
+    <Compile Include="TftpRequest.cs" />
+    <Compile Include="TftpServer.cs" />
+    <Compile Include="TftpSession.cs" />
+    <Compile Include="TftpTransferCompleteEventArgs.cs" />
+    <Compile Include="TftpTransferErrorEventArgs.cs" />
+    <Compile Include="helpers\BufferPrimitives.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+</Project>

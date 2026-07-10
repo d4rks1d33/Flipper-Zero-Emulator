@@ -1,0 +1,9 @@
+{
+    "RoslynExtensionsOptions": {
+        "enableAnalyzersSupport": true,
+        "analyzeOpenDocumentsOnly": true,
+        "LocationPaths": [
+            "/home/mkarlic/renode-models-analyzer/ModelsAnalyzer/Analyzers/bin/Debug/net6.0/"
+        ]
+    }
+}

@@ -134,16 +134,15 @@ class RenodeMonitor:
         else:
             level = pressed       # pressed => high
         val = "true" if level else "false"
-        
-        # 1. Set the GPIO pin state (for polling)
+
+        # Drive the GPIO port pin. The port-aware EXTI model (SYSCFG_EXTICR
+        # routing) forwards this to the correct EXTI line automatically, so we do
+        # NOT poke `exti` directly any more -- doing so would inject on the wrong
+        # port's line (e.g. `exti OnGPIO 3` = PA3, not PH3) and be rejected by the
+        # EXTICR port mux.
         gpio_cmd = f"{port} OnGPIO {pin} {val}"
-        # 2. Force the EXTI trigger (for interrupts), bypassing the GPIO port mapping
-        exti_cmd = f"exti OnGPIO {pin} {val}"
-        
-        print(f"DEBUG: Button {name} {'pressed' if pressed else 'released'} -> {gpio_cmd} AND {exti_cmd}")
+        print(f"DEBUG: Button {name} {'pressed' if pressed else 'released'} -> {gpio_cmd}")
         self.send(gpio_cmd)
-        time.sleep(0.01)
-        self.send(exti_cmd)
 
 
 def load_framebuffer():
@@ -164,17 +163,51 @@ def init_buttons(monitor):
 
 
 def main():
-    sdl2.ext.init()
-    window = sdl2.ext.Window("Flipper Zero Emulator", size=(WIDTH * SCALE, HEIGHT * SCALE))
-    window.show()
+    # A window can only receive keyboard events if there is a display server and
+    # the window is focused. Without DISPLAY/WAYLAND_DISPLAY (e.g. pure SSH, or a
+    # headless box) the SDL window never gets keyboard focus, so button presses
+    # never reach the emulator -- warn clearly instead of silently "not working".
+    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        print("WARNING: no DISPLAY/WAYLAND_DISPLAY is set. The SDL window cannot")
+        print("         receive keyboard focus, so buttons will NOT reach the")
+        print("         emulator. Run on a desktop session, or use headless mode:")
+        print("           python3 frontend/view_display.py --watch")
 
-    renderer = sdl2.ext.Renderer(window)
-
+    # Connect to the Renode monitor BEFORE creating the renderer. If the renderer
+    # ever fails to initialize (missing GPU/render driver), we still want the
+    # button-injection path connected -- and any connection warning shown -- so
+    # the buttons keep working and the failure mode is obvious.
     monitor = RenodeMonitor(MONITOR_HOST, MONITOR_PORT)
     init_buttons(monitor)
 
+    sdl2.ext.init()
+    window = sdl2.ext.Window("Flipper Zero Emulator", size=(WIDTH * SCALE, HEIGHT * SCALE))
+    window.show()
+    # Pull the window to the front and give it focus so keystrokes land here.
+    try:
+        sdl2.SDL_RaiseWindow(window.window)
+    except Exception:
+        pass
+
+    # Hardware-accelerated renderer + a single streaming texture we update once
+    # per frame (instead of ~8192 per-pixel fills, which throttled the event loop
+    # to ~12 Hz and made buttons feel unresponsive).
+    sdl_renderer = sdl2.SDL_CreateRenderer(
+        window.window, -1,
+        sdl2.SDL_RENDERER_ACCELERATED | sdl2.SDL_RENDERER_PRESENTVSYNC)
+    if not sdl_renderer:
+        # Fall back to software so the window still renders.
+        sdl_renderer = sdl2.SDL_CreateRenderer(window.window, -1, sdl2.SDL_RENDERER_SOFTWARE)
+    texture = sdl2.SDL_CreateTexture(
+        sdl_renderer, sdl2.SDL_PIXELFORMAT_ARGB8888,
+        sdl2.SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT)
+
+    # Pre-computed 32-bit ARGB pixels for on/off.
+    fg_px = (0xFF << 24) | (FG[0] << 16) | (FG[1] << 8) | FG[2]
+    bg_px = (0xFF << 24) | (BG[0] << 16) | (BG[1] << 8) | BG[2]
+    pixel_buf = (ctypes.c_uint32 * (WIDTH * HEIGHT))()
+
     running = True
-    last_fb = None
     pressed_keys = set()
 
     print("Flipper Zero SDL frontend running.")
@@ -200,16 +233,17 @@ def main():
 
         fb = load_framebuffer()
         if fb is not None:
-            renderer.clear(BG)
-            for y in range(HEIGHT):
-                for x in range(WIDTH):
-                    if fb[y * WIDTH + x]:
-                        renderer.fill(
-                            (x * SCALE, y * SCALE, SCALE, SCALE), FG)
-            renderer.present()
+            for i in range(WIDTH * HEIGHT):
+                pixel_buf[i] = fg_px if fb[i] else bg_px
+            sdl2.SDL_UpdateTexture(texture, None, pixel_buf, WIDTH * 4)
+            sdl2.SDL_RenderClear(sdl_renderer)
+            sdl2.SDL_RenderCopy(sdl_renderer, texture, None, None)
+            sdl2.SDL_RenderPresent(sdl_renderer)
 
-        sdl2.SDL_Delay(33)  # ~30 fps
+        sdl2.SDL_Delay(16)  # ~60 fps; event loop stays responsive
 
+    sdl2.SDL_DestroyTexture(texture)
+    sdl2.SDL_DestroyRenderer(sdl_renderer)
     sdl2.ext.quit()
 
 

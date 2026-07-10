@@ -1,0 +1,21 @@
+:name: EFR32MG
+:description: This script runs Zephyr on EFR32MG.
+
+$name?="EFR32-MG"
+using sysbus
+mach create $name
+
+machine LoadPlatformDescription @platforms/cpus/silabs/efr32/efr32mg12.repl
+
+$bin?=@https://dl.antmicro.com/projects/renode/zephyr.elf-s_408460-78d9cb6ba6a067f86d437cf4f9ef2672bec39c15
+sysbus Tag <0x40080000 0x400> "RADIO"
+
+showAnalyzer usart0
+
+macro reset
+"""
+    sysbus LoadELF $bin
+    deviceInformation Unique `next_value`
+"""
+
+runMacro $reset

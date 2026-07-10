@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	  <Deterministic>false</Deterministic>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\xwt.snk</AssemblyOriginatorKeyFile>
+    <RootNamespace>Xwt</RootNamespace>
+    <AssemblyName>Xwt</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageId>Xwt</PackageId>
+    <Authors>Lluis Sanchez</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/mono/xwt/</PackageProjectUrl>
+    <PackageTags>xwt cross platform gui ui toolkit framework desktop wpf mac osx monomac cocoa gtk</PackageTags>
+    <Description>Xwt is a cross-platform UI toolkit for creating desktop applications with .NET and Mono that run on multiple platforms from the same codebase.
+
+Xwt works by exposing one unified API across all environments that is mapped to a set of native controls on each platform.
+
+The framework consists of the frontend (Xwt core) and platform specific backends. Additionally to this core Xwt package you need to add an Xwt toolkit package (Xwt.*) for every platform you want your application to target.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\LICENSE.txt" Pack="true" PackagePath="" />
+    <None Include="..\README.markdown" Pack="true" PackagePath="" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{3A70B9B8-BBAB-47EA-8473-B7A0B4961D56}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>CxxDemangler</RootNamespace>
+    <AssemblyName>CxxDemangler</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="CxxDemangler.cs" />
+    <Compile Include="DemanglingContext.cs" />
+    <Compile Include="IDemangleAsInner.cs" />
+    <Compile Include="IParsingResult.cs" />
+    <Compile Include="ParsingContext.cs" />
+    <Compile Include="SimpleStringParser.cs" />
+    <Compile Include="SimpleStringWriter.cs" />
+    <Compile Include="SubstitutionTable.cs" />
+    <Compile Include="Parsers\ArrayType.cs" />
+    <Compile Include="Parsers\BareFunctionType.cs" />
+    <Compile Include="Parsers\BaseUnresolvedName.cs" />
+    <Compile Include="Parsers\BuiltinType.cs" />
+    <Compile Include="Parsers\CallOffset.cs" />
+    <Compile Include="Parsers\ClassEnumType.cs" />
+    <Compile Include="Parsers\ClosureTypeName.cs" />
+    <Compile Include="Parsers\CtorDtorName.cs" />
+    <Compile Include="Parsers\CvQualifiers.cs" />
+    <Compile Include="Parsers\DataMemberPrefix.cs" />
+    <Compile Include="Parsers\Decltype.cs" />
+    <Compile Include="Parsers\DestructorName.cs" />
+    <Compile Include="Parsers\DictionaryParser.cs" />
+    <Compile Include="Parsers\DictionaryValueAttribute.cs" />
+    <Compile Include="Parsers\Discriminator.cs" />
+    <Compile Include="Parsers\Encoding.cs" />
+    <Compile Include="Parsers\Expression.cs" />
+    <Compile Include="Parsers\ExprPrimary.cs" />
+    <Compile Include="Parsers\FunctionParam.cs" />
+    <Compile Include="Parsers\FunctionType.cs" />
+    <Compile Include="Parsers\Initializer.cs" />
+    <Compile Include="Parsers\LambdaSig.cs" />
+    <Compile Include="Parsers\LocalName.cs" />
+    <Compile Include="Parsers\MangledName.cs" />
+    <Compile Include="Parsers\Name.cs" />
+    <Compile Include="Parsers\NestedName.cs" />
+    <Compile Include="Parsers\OperatorName.cs" />
+    <Compile Include="Parsers\PointerToMemberType.cs" />
+    <Compile Include="Parsers\Prefix.cs" />
+    <Compile Include="Parsers\RefQualifier.cs" />
+    <Compile Include="Parsers\SimpleId.cs" />
+    <Compile Include="Parsers\SimpleOperatorName.cs" />
+    <Compile Include="Parsers\SourceName.cs" />
+    <Compile Include="Parsers\SpecialName.cs" />
+    <Compile Include="Parsers\StandardBuiltinType.cs" />
+    <Compile Include="Parsers\Substitution.cs" />
+    <Compile Include="Parsers\TemplateArg.cs" />
+    <Compile Include="Parsers\TemplateArgs.cs" />
+    <Compile Include="Parsers\TemplateParam.cs" />
+    <Compile Include="Parsers\TemplateTemplateParam.cs" />
+    <Compile Include="Parsers\Type.cs" />
+    <Compile Include="Parsers\UnnamedTypeName.cs" />
+    <Compile Include="Parsers\UnqualifiedName.cs" />
+    <Compile Include="Parsers\UnresolvedName.cs" />
+    <Compile Include="Parsers\UnresolvedQualifierLevel.cs" />
+    <Compile Include="Parsers\UnresolvedType.cs" />
+    <Compile Include="Parsers\UnscopedName.cs" />
+    <Compile Include="Parsers\UnscopedTemplateName.cs" />
+    <Compile Include="Parsers\WellKnownComponent.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+</Project>

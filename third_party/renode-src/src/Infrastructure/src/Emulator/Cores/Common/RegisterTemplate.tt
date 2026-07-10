@@ -1,0 +1,374 @@
+﻿<#
+//
+// Copyright (c) 2010-2025 Antmicro
+// Copyright (c) 2011-2015 Realtime Embedded
+//
+// This file is licensed under the MIT License.
+// Full license text is available in 'licenses/MIT.txt'.
+//
+#>
+<#@ template language="C#" hostspecific="true" #>
+<#@ parameter type="System.String" name="BASE_PATH" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ include file="RegisterEnumParserContent.tt" #>
+<#
+    if(CLASS_NAME == null)
+    {
+        throw new ArgumentException("CLASS_NAME variable not set");
+    }
+    if(HEADER_FILE == null)
+    {
+        throw new ArgumentException("HEADER_FILE variable not set");
+    }
+    if(ACCESSOR_PREFIX == null)
+    {
+        // Assume tlibs by default
+        ACCESSOR_PREFIX = "tlib_";
+    }
+
+    RegistersEnumParser parser;
+    var baseDirectoryPath = Directory.GetParent(BASE_PATH).Parent.Parent.Parent.FullName;
+    var fullPath = Path.Combine(baseDirectoryPath, HEADER_FILE);
+    using(var stream = File.OpenRead(fullPath))
+    {
+        parser = new RegistersEnumParser(stream, DEFINES);
+    }
+
+    if(PC_REGISTER != null)
+    {
+        parser.Map("PC", PC_REGISTER);
+    }
+
+    foreach(var ignored in REGISTERS_FROM_BASE_CLASS)
+    {
+        parser.Ignore(ignored);
+    }
+
+    var virtualRegisters = new HashSet<string> { "PC" };
+
+    var OVERRIDE = "";
+
+    if(OVERRIDE_DEFINITIONS)
+    {
+        OVERRIDE = "override ";
+    }
+#>
+/********************************************************
+*
+* Warning!
+* This file was generated automatically.
+* Please do not edit. Changes should be made in the
+* appropriate *.tt file.
+*
+*/
+#pragma warning disable IDE0005
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+using Antmicro.Renode.Exceptions;
+using Antmicro.Renode.Peripherals.CPU.Registers;
+using Antmicro.Renode.Utilities.Binding;
+#pragma warning restore IDE0005
+
+namespace Antmicro.Renode.Peripherals.CPU
+{
+    public partial class <#=CLASS_NAME#>
+    {
+<#
+    var widths = parser.Registers
+        .Union(parser.RegisterGroups.SelectMany(x => x.GetRegisters()))
+        .Select(x => x.Width)
+        .OrderBy(x => x)
+        .Distinct()
+        .ToArray();
+#>
+        public <#=OVERRIDE#>void SetRegister(int register, RegisterValue value)
+        {
+            if(!mapping.TryGetValue((<#=CLASS_NAME#>Registers)register, out var r))
+            {
+<#
+    if(FALLBACK_SET_REGISTER != null)
+    {
+#>
+                if(<#=FALLBACK_SET_REGISTER#>(register, value))
+                {
+                    return;
+                }
+<# 
+    }
+#>
+                throw new RecoverableException($"Wrong register index: {register}");
+            }
+<#
+    if(UNSETTABLE_REGISTERS.Any())
+    {
+#>
+            if(r.IsReadonly)
+            {
+                throw new RecoverableException($"The '{(<#=CLASS_NAME#>Registers)register}' register is read-only.");
+            }
+<# 
+    }
+#>
+
+<#
+    if(widths.Length == 1)
+    {
+#>
+            SetRegisterValue<#=widths[0]#>(r.Index, checked((<#=RegisterTypeHelper.GetTypeName(widths[0])#>)value));
+<#
+    }
+    else
+    {
+#>
+            switch(r.Width)
+            {
+<#
+        foreach(var width in widths)
+        {
+#>
+            case <#=width#>:
+                SetRegisterValue<#=width#>(r.Index, checked((<#=RegisterTypeHelper.GetTypeName(width)#>)value));
+                break;
+<#
+        }
+#>
+            default:
+                throw new ArgumentException($"Unsupported register width: {r.Width}");
+            }
+<#
+    }
+#>
+        }
+
+        public <#=OVERRIDE#>RegisterValue GetRegister(int register)
+        {
+            if(!mapping.TryGetValue((<#=CLASS_NAME#>Registers)register, out var r))
+            {
+<#
+    if(FALLBACK_GET_REGISTER != null)
+    {
+#>
+                if(<#=FALLBACK_GET_REGISTER#>(register, out var value))
+                {
+                    return value;
+                }
+<# 
+    }
+#>
+                throw new RecoverableException($"Wrong register index: {register}");
+            }
+<#
+    if(widths.Length == 1)
+    {
+#>
+            return GetRegisterValue<#=widths[0]#>(r.Index);
+<#
+    }
+    else
+    {
+#>
+            switch(r.Width)
+            {
+<#
+        foreach(var width in widths)
+        {
+#>
+            case <#=width#>:
+                return GetRegisterValue<#=width#>(r.Index);
+<#
+        }
+#>
+            default:
+                throw new ArgumentException($"Unsupported register width: {r.Width}");
+            }
+<#
+    }
+#>
+        }
+
+        public <#=OVERRIDE#>IEnumerable<CPURegister> GetRegisters()
+        {
+<#
+    if(FALLBACK_REGISTERS != null)
+    {
+#>
+            return mapping.Values.Concat(<#=FALLBACK_REGISTERS#>()).OrderBy(x => x.Index);
+<#
+    }
+    else
+    {
+#>
+            return mapping.Values.OrderBy(x => x.Index);
+<#
+    }
+#>
+        }
+<#
+    foreach(var register in parser.Registers.Where(x => !x.IsIgnored))
+    {
+#>
+
+        [Register]
+        public <#= virtualRegisters.Contains(register.Name) ? "override " : "" #>RegisterValue <#=register.Name#>
+        {
+            get
+            {
+<#
+        var registerValueGetter = $"GetRegisterValue{register.Width}((int){CLASS_NAME}Registers.{register.Name})";
+        if(BEFORE_READ_HOOKS.ContainsKey(register.Name))
+        {
+#>
+                <#=BEFORE_READ_HOOKS[register.Name]#>();
+<#
+        }
+#>
+<#
+        if(AFTER_READ_HOOKS.ContainsKey(register.Name))
+        {
+#>
+                return <#=AFTER_READ_HOOKS[register.Name]#>(<#=registerValueGetter#>);
+<#
+        } else {
+#>
+                return <#=registerValueGetter#>;
+<#
+        }
+#>
+            }
+
+            set
+            {
+<#
+        if(BEFORE_WRITE_HOOKS.ContainsKey(register.Name))
+        {
+#>
+                value = <#=BEFORE_WRITE_HOOKS[register.Name]#>(value);
+<#
+        }
+#>
+                SetRegisterValue<#=register.Width#>((int)<#=CLASS_NAME#>Registers.<#=register.Name#>, value);
+<#
+        if(AFTER_WRITE_HOOKS.ContainsKey(register.Name))
+        {
+#>
+                <#=AFTER_WRITE_HOOKS[register.Name]#>(value);
+<#
+        }
+#>
+            }
+        }
+<#
+    }
+
+    foreach(var registerGroup in parser.RegisterGroups.Where(x => !x.IsIgnored))
+    {
+#>
+
+        public RegistersGroup <#=registerGroup.Name#> { get; private set; }
+<#
+    }
+#>
+
+#pragma warning disable SA1508
+        protected <#=OVERRIDE#>void InitializeRegisters()
+        {
+<#
+    if(REGISTERS_FROM_BASE_CLASS.Count > 0)
+    {
+#>
+            base.InitializeRegisters();
+<#
+    }
+    foreach(var registerGroup in parser.RegisterGroups.Where(x => !x.IsIgnored))
+    {#>
+            var indexValueMap<#=registerGroup.Name#> = new Dictionary<int, <#=CLASS_NAME#>Registers>
+            {
+<#
+        foreach(var elem in registerGroup.IndexValueMap)
+        {
+#>
+                { <#=elem.Key#>, <#=CLASS_NAME#>Registers.<#=registerGroup.Name#><#=elem.Key#> },
+<#
+        }
+#>
+            };
+            <#=registerGroup.Name#> = new RegistersGroup(
+                indexValueMap<#=registerGroup.Name#>.Keys,
+                i => GetRegister((int)indexValueMap<#=registerGroup.Name#>[i]),
+                (i, v) => SetRegister((int)indexValueMap<#=registerGroup.Name#>[i], v));
+
+<#
+    }
+#>
+        }
+#pragma warning restore SA1508
+
+<#
+    var ignoredWidths = parser.RegisterGroups.Where(x => x.IsIgnored).Select(x => x.Width).Union(parser.Registers.Where(x => x.IsIgnored).Select(x => x.Width)).Distinct();
+    foreach(var width in parser.RegisterGroups.Select(x => x.Width).Union(parser.Registers.Select(x => x.Width)).Except(ignoredWidths).Distinct())
+    {
+#>
+#pragma warning disable 649
+        // 649:  Field '...' is never assigned to, and will always have its default value null
+        [Import(Name = "<#=ACCESSOR_PREFIX#>set_register_value_<#=width#>")]
+        protected Action<int, <#=RegisterTypeHelper.GetTypeName(width)#>> SetRegisterValue<#=width#>;
+
+        [Import(Name = "<#=ACCESSOR_PREFIX#>get_register_value_<#=width#>")]
+        protected Func<int, <#=RegisterTypeHelper.GetTypeName(width)#>> GetRegisterValue<#=width#>;
+#pragma warning restore 649
+
+<#
+    }
+#>
+        private static readonly Dictionary<<#=CLASS_NAME#>Registers, CPURegister> mapping = new Dictionary<<#=CLASS_NAME#>Registers, CPURegister>
+        {
+<#
+    foreach(var register in
+        parser.Registers
+        .Union(parser.RegisterGroups.SelectMany(x => x.GetRegisters()))
+        .GroupBy(x => x.Value)
+        .OrderBy(x => x.Key))
+    {
+        var firstName = register.First().Name;
+        var id = register.Key;
+        var width = register.Select(x => x.Width).First();
+        var isGeneral = register.Any(x => GENERAL_REGISTERS.Contains(x.Name)) ? "true" : "false";
+        var isReadonly = register.Any(x => UNSETTABLE_REGISTERS.Contains(x.Name)) ? "true" : "false";
+        var names = String.Join(", ", register.Select(x => $"\"{x.Name}\""));
+        var aliases = $"new [] {{ {names} }}";
+#>
+            { <#=CLASS_NAME#>Registers.<#=firstName#>,  new CPURegister(<#=id#>, <#=width#>, isGeneral: <#=isGeneral#>, isReadonly: <#=isReadonly#>, aliases: <#=aliases#>) },
+<#
+    }
+#>
+        };
+    }
+
+    public enum <#=CLASS_NAME#>Registers
+    {
+<#
+    foreach(var register in parser.Registers)
+    {
+#>
+        <#=register.Name#> = <#=register.Value#>,
+<#
+    }
+
+    foreach(var registerGroup in parser.RegisterGroups)
+    {
+        foreach(var index in registerGroup.IndexValueMap.OrderBy(x => x.Key))
+        {
+#>
+        <#=registerGroup.Name#><#=index.Key#> = <#=index.Value#>,
+<#
+        }
+    }
+#>
+    }
+}

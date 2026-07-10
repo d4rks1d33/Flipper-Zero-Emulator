@@ -1,0 +1,12 @@
+cpu0: CPU.ARMv7A @ sysbus
+    cpuType: "cortex-a5"
+    cpuId: 0
+
+memory: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x10000000
+
+sysbus:
+    init add:
+        Tag <0xF0014068 4> "PMC_SR" 0xFFFFFFFF
+        Tag <0xF0014030 4> "PMC_MCKR" 0x1
+        Tag <0xF0024010 4> "QSPI_SR" 0xFFFFFFFF

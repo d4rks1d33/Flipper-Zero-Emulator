@@ -1,0 +1,4 @@
+HFXO0_NS: Python.PythonPeripheral @ sysbus 0x5000C058
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"

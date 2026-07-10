@@ -1,0 +1,18 @@
+using "platforms/cpus/silabs/efr32/efr32mg12.repl"
+
+flash:
+    size: 0x200000
+
+spiflash: SPI.Micron_MT25Q @ usart2
+    underlyingMemory: flash
+
+deviceInformation:
+    init:
+        EUI48 0xEEEEEEEEEEEE
+
+sysbus:
+    init add:
+        Tag <0xE00FFFE0 0x4> "PID0" 0x01
+        Tag <0xE00FFFE4 0x4> "PID1" 0x39
+        Tag <0xE00FFFE8 0x4> "PID2" 0x0f
+        Tag <0xE00FFFEC 0x4> "PID3" 0x20

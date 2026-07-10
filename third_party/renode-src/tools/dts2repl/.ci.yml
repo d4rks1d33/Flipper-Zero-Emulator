@@ -1,0 +1,93 @@
+stages:
+  - Release
+  - Test
+
+Static release:
+  stage: Release
+  image: debian:bullseye
+  before_get_sources:
+    - apt -qqy update &> /dev/null
+    - apt -qqy install patchelf build-essential python3-pip zlib1g-dev &> /dev/null
+    - pip3 install pyinstaller staticx &> /dev/null
+  script:
+    - pip3 install requests -t deps
+    - echo >> dts2repl/__init__.py
+    - echo "version_commit ='${CI_COMMIT_SHORT_SHA}'" >> dts2repl/__init__.py
+    - echo "version_additional = 'static'" >> dts2repl/__init__.py
+    - pyinstaller --onefile dts2repl/dts2repl.py --paths deps --add-data dts2repl/models.json:. --add-data dts2repl/overlay:overlay
+    - staticx dist/dts2repl dts2repl-static
+    - chmod +x dts2repl-static
+    - cp dist/dts2repl dts2repl-dynamic
+    - chmod +x dts2repl-dynamic
+  artifacts:
+    paths:
+      - dts2repl-static
+      - dts2repl-dynamic
+
+Test Static release:
+  stage: Test
+  image: debian:bullseye
+  dependencies: [Static release]
+  before_get_sources:
+    - apt -qqy update > /dev/null
+    - apt -qqy --no-install-recommends install wget ca-certificates > /dev/null
+  script:
+    - ./dts2repl-static --version
+    - ./dts2repl-static https://zephyr-samples-builder.storage.googleapis.com/zephyr/29059ec3d6aaef314dbc598485d5d6de6f35ae5b/96b_aerocore2/hello_world/hello_world.dts --output test.repl
+    - wget -nv https://zephyr-samples-builder.storage.googleapis.com/zephyr/29059ec3d6aaef314dbc598485d5d6de6f35ae5b/96b_aerocore2/hello_world/hello_world.dts
+    - ./dts2repl-static hello_world.dts --output test2.repl
+    - diff test.repl test2.repl || true
+    - cat test.repl
+  artifacts:
+    paths:
+      - test.repl
+      - test2.repl
+
+.compare_repls: &compare_repls
+  stage: Test
+  image: debian:bullseye
+  variables:
+    DEBIAN_FRONTEND: "noninteractive"
+    GET_CUSTOM_RENODE_REVISION: ""
+    RENODE_VERSION: "" # defaults to the one used on appropriate dashboard
+  artifacts:
+    paths:
+      - ci-output/repls
+      - ci-output/robot-results
+      - ci-output/regressions
+      - renode-build.log
+    when: always
+  before_get_sources:
+    - apt -qqy update &> /dev/null
+    - apt -qqy install automake autoconf cmake libtool g++ coreutils policykit-1 libgtk2.0-dev uml-utilities gtk-sharp2 wget jq git curl python3 python3-pip parallel xz-utils rename &> /dev/null
+
+    # Sometimes requests to 'packages.microsoft.com' fail with 'Network is unreachable' is unavailable. Retry until success or timeout.
+    - for _ in {1..10}; do wget https://packages.microsoft.com/config/debian/11/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && break || sleep 30; done
+    - if [ ! -f packages-microsoft-prod.deb ]; then echo "Failed to download packages-microsoft-prod.deb after multiple attempts."; exit 1; fi
+    - dpkg -i packages-microsoft-prod.deb
+    - rm packages-microsoft-prod.deb
+    - apt-get update
+    - apt-get install -y dotnet-sdk-8.0
+    - dotnet --version
+
+  before_script:
+    - ./ci/prepare.sh # uses DASHBOARD_VARIANT
+  script:
+    - ./ci/test.sh # uses DASHBOARD_VARIANT
+    - ./ci/process_test_results.sh
+
+Compare repls uboot:
+  <<: *compare_repls
+  variables:
+    DEBIAN_FRONTEND: "noninteractive"
+    GET_CUSTOM_RENODE_REVISION: ""
+    RENODE_VERSION: "" # defaults to renode used on uboot-dashboard
+    DASHBOARD_VARIANT: "uboot"
+
+Compare repls zephyr:
+  <<: *compare_repls
+  variables:
+    DEBIAN_FRONTEND: "noninteractive"
+    GET_CUSTOM_RENODE_REVISION: ""
+    RENODE_VERSION: "" # defaults to renode used on zephyr-dashboard
+    DASHBOARD_VARIANT: "zephyr"

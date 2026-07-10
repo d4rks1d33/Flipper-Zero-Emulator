@@ -1,0 +1,121 @@
+program: Memory.MappedMemory @ sysbus 0x0
+    size: 0x00040000
+
+
+flexnvm: Memory.MappedMemory @ sysbus 0x10000000
+    size: 0x00008000
+
+
+// Should be 0x800 + 0x80 for CSE_PRAM, but internal
+// limitations require us to align regions to 0x400
+flexram: Memory.MappedMemory @ sysbus 0x14000000
+    size: 0x00000800
+
+
+sram_l: Memory.MappedMemory @ sysbus 0x1C000000
+    size: 0x4000000
+
+
+sram_u: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x5800
+
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 72000000
+    IRQ -> cpu@0
+
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m0+"
+    nvic: nvic
+
+
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 48000000
+
+
+lpspi0: SPI.IMXRT_LPSPI @ sysbus 0x4002C000
+    -> nvic@26
+
+
+lpspi1: SPI.IMXRT_LPSPI @ sysbus 0x4002D000
+    -> nvic@27
+
+
+lpuart0: UART.NXP_LPUART @ sysbus 0x4006A000
+    IRQ -> nvic@31
+
+
+lpuart1: UART.NXP_LPUART @ sysbus 0x4006B000
+    IRQ -> nvic@30
+
+
+can0_mcr: Python.PythonPeripheral @ sysbus 0x40024000
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+
+lpit: Timers.S32K_LPIT @ sysbus 0x40037000
+    frequency: 5000
+    IRQ -> nvic@20
+
+
+lptmr: Timers.S32K_LPTMR @ sysbus 0x40040000
+    -> nvic@8
+    frequency: 80000000
+
+
+portGPIO: Miscellaneous.CombinedInput
+    numberOfInputs: 5
+    -> nvic@9
+
+
+portA: GPIOPort.NXPGPIOPort @ {
+        sysbus new Bus.BusMultiRegistration { address: 0x400FF000; size: 0x40; region: "gpio" };
+        sysbus new Bus.BusMultiRegistration { address: 0x40049000; size: 0xD0; region: "port" }
+    }
+    numberOfPins: 12
+    -> portGPIO@0
+
+
+portB: GPIOPort.NXPGPIOPort @ {
+    sysbus new Bus.BusMultiRegistration { address: 0x400FF040; size: 0x40; region: "gpio" };
+    sysbus new Bus.BusMultiRegistration { address: 0x4004A000; size: 0xD0; region: "port" }}
+    numberOfPins: 10
+    -> portGPIO@1
+
+
+portC: GPIOPort.NXPGPIOPort @ {
+    sysbus new Bus.BusMultiRegistration { address: 0x400FF080; size: 0x40; region: "gpio" };
+    sysbus new Bus.BusMultiRegistration { address: 0x4004B000; size: 0xD0; region: "port" }}
+    numberOfPins: 14
+    -> portGPIO@2
+
+
+portD: GPIOPort.NXPGPIOPort @ {
+    sysbus new Bus.BusMultiRegistration { address: 0x400FF0C0; size: 0x40; region: "gpio" };
+    sysbus new Bus.BusMultiRegistration { address: 0x4004C000; size: 0xD0; region: "port" }}
+    numberOfPins: 10
+    -> portGPIO@3
+
+
+portE: GPIOPort.NXPGPIOPort @ {
+    sysbus new Bus.BusMultiRegistration { address: 0x400FF100; size: 0x40; region: "gpio" };
+    sysbus new Bus.BusMultiRegistration { address: 0x4004D000; size: 0xD0; region: "port" }}
+    numberOfPins: 12
+    -> portGPIO@4
+
+
+scg: Miscellaneous.S32K_SCG @ sysbus 0x40064000
+
+
+sysbus:
+    init:
+        ApplySVD @https://dl.antmicro.com/projects/renode/S32K118.svd-s_4356973-8b6f35da75a942816cd0d662d28a690e8b3484e3
+        Tag <0x40024000, 0x40024003> "CAN0:MCR" 0x0
+        Tag <0x40038000, 0x40038003> "FTM0:SC" 0x1
+        Tag <0x400650DC, 0x400650DF> "PPC:PPC_LPIT" 0xF9FFFFFF
+        Tag <0x400651A8, 0x400651AB> "PPC:PPC_LPUART0" 0xF9FFFFFF
+        Tag <0x400651AC, 0x400651AF> "PPC:PPC_UART" 0xF9FFFFFF

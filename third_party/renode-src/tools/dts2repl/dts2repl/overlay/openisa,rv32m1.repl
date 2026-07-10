@@ -1,0 +1,35 @@
+SCG_CSR: Python.PythonPeripheral @ sysbus 0x4002C010
+    size: 0x4
+    initable: true
+    script: '''
+if request.IsInit: lastVal = None
+if request.IsRead: request.Value = 0x2000000 if lastVal == None else 0x3000001; lastVal = request.Value
+'''
+
+pcc0: Python.PythonPeripheral @ sysbus 0x4002B000
+    initable: true
+    size: 0x204
+    script: '''
+if request.IsInit: regs = [0x80000000] * (size / 4)
+if request.IsRead: request.Value = regs[request.Offset >> 2]
+if request.IsWrite: regs[request.Offset >> 2] = request.Value
+'''
+
+pcc1: Python.PythonPeripheral @ sysbus 0x41027000
+    initable: true
+    size: 0x208
+    script: '''
+if request.IsInit: regs = [0x80000000] * (size / 4)
+if request.IsRead: request.Value = regs[request.Offset >> 2]
+if request.IsWrite: regs[request.Offset >> 2] = request.Value
+'''
+
+sysbus: 
+    init add:
+        ApplySVD @https://dl.antmicro.com/projects/renode/svd/RV32M1_RI5CY.svd.gz
+        Tag <0x4002C200 4> "SIRCCSR" 0xFFFFFFFF          
+        Tag <0x4002C300 4> "FIRCCSR" 0xFFFFFFFF          
+        Tag <0x4002C304 4> "FIRCDIV" 0x00010101
+        Tag <0x4002C500 4> "LPFFLCSR" 0xFFFFFFFF
+        Tag <0x4002C208 4> "SIRCFFG" 0x1
+        SilenceRange <0xE004100C 4>

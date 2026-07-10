@@ -1,0 +1,16 @@
+#temp
+*~
+test-results
+
+#bin
+bin
+lib
+build
+obj
+
+#ide
+*.pidb
+*.userprefs
+
+#packages
+packages

@@ -44,7 +44,21 @@ namespace Antmicro.Renode.Peripherals.SPI
             switch(number)
             {
                 case 0: displaySelected = !value; break;
-                case 1: sdSelected = !value; break;
+                case 1:
+                    // SD CS (active low). On a fresh assert (deselected->selected)
+                    // tell the card a new transaction is starting so any leftover
+                    // response/read-block bytes from an aborted transfer are
+                    // dropped instead of corrupting the next command. Without this
+                    // an intermittent FR_DISK_ERR appears during f_open.
+                    {
+                        bool nowSelected = !value;
+                        if(nowSelected && !sdSelected)
+                        {
+                            (sdcard as ITransactionResettable)?.BeginTransaction();
+                        }
+                        sdSelected = nowSelected;
+                    }
+                    break;
                 case 2: display.OnGPIO(0, value); break;  // D/C forwarded to display
             }
         }

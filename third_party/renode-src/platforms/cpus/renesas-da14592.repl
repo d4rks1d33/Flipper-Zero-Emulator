@@ -1,0 +1,143 @@
+nvic_m33: IRQControllers.NVIC @ sysbus new Bus.BusPointRegistration {
+        address: 0xE000E000;
+        cpu: cpu_m33
+    }
+    priorityMask: 0xF0
+    systickFrequency: 32000000
+    IRQ -> cpu_m33@0
+
+nvic_cmac: IRQControllers.NVIC @ sysbus new Bus.BusPointRegistration {
+        address: 0xE000E000;
+        cpu: cmac
+    }
+    priorityMask: 0xF0
+    systickFrequency: 32000000
+    IRQ -> cmac@0
+
+cpu_m33: CPU.CortexM @ sysbus
+    cpuType: "cortex-m33"
+    nvic: nvic_m33
+    id: 0
+
+cmac: CPU.CortexM @ sysbus
+    cpuType: "cortex-m0+"
+    nvic: nvic_cmac
+    id: 1
+
+rom: Memory.MappedMemory @ {
+        sysbus 0x0;
+        sysbus 0x900000
+    }
+    size: 0x48000
+
+eflash_data_header: Memory.MappedMemory @ {
+    sysbus 0xA00000;
+    sysbus 0x31000000
+}
+    size: 0x2400
+
+eflash_data_text: Memory.MappedMemory @ {
+    sysbus 0xA02400;
+    sysbus 0x31002400
+}
+    size: 0x3E400
+
+qpic_m: Memory.MappedMemory @ {
+        sysbus 0x16000000;
+        sysbus 0x32000000
+    }
+    size: 0x2000000
+
+sram: Memory.MappedMemory @ {
+        sysbus 0x800000;
+        sysbus 0x20000000
+    }
+    size: 0x18000
+
+timer1: Timers.RenesasDA14_GPT @ sysbus 0x50010300
+    extendedTimer: true
+    -> nvic_m33@14
+    CaptureIRQ -> nvic_m33@28
+
+timer2: Timers.RenesasDA14_GPT @ sysbus 0x50010400
+    -> nvic_m33@15
+
+timer3: Timers.RenesasDA14_GPT @ sysbus 0x50010500
+    -> nvic_m33@30
+
+timer4: Timers.RenesasDA14_GPT @ sysbus 0x50020A00
+    -> nvic_m33@31
+
+uart0: UART.RenesasDA14_UART @ sysbus 0x50020000
+    -> nvic_m33@3
+
+uart1: UART.RenesasDA14_UART @ sysbus 0x50020100
+    -> nvic_m33@4
+
+sys_wdog: Timers.RenesasDA_Watchdog @ sysbus new Bus.BusPointRegistration {
+        address: 0x50000700;
+        cpu: cpu_m33
+    }
+    frequency: 32000
+    nvic: nvic_m33
+
+gpadc: Analog.RenesasDA14_GPADC @ sysbus 0x50040900
+    IRQ -> nvic_m33@25
+
+gpio: GPIOPort.RenesasDA14_GPIO @ sysbus 0x50020600
+
+dma: DMA.RenesasDA14_DMA @ sysbus 0x50060200
+    IRQ -> nvic_m33@1
+
+i2c: I2C.RenesasDA_I2C @ sysbus 0x50020300
+    dma: dma
+    -> nvic_m33@5
+
+clock_gen: Miscellaneous.RenesasDA14_ClockGenerationController @ sysbus 0x50000000
+    xtal32m: xtal32m_regs
+    rom: rom
+    eflashDataText: eflash_data_text
+
+xtal32m_regs: Miscellaneous.RenesasDA14_XTAL32MRegisters @ sysbus 0x50010000
+
+spi: SPI.RenesasDA_SPI @ sysbus 0x50020200
+    -> nvic_m33@6
+
+gp_regs: Miscellaneous.RenesasDA14_GeneralPurposeRegisters @ sysbus 0x50050300
+    sysWatchdog: sys_wdog
+
+sysbus:
+    init:
+        Tag <0x50060400,0x5006040b> "AMBA_BUS_SYSB" // AMBA_BUS_SYSB registers
+        Tag <0x30020000,0x30020093> "AMBA_BUS_DW" // AMBA_BUS_DW registers
+        Tag <0x50060004,0x5006007f> "MEMORY_CONTROLLER" // MEMORY_CONTROLLER registers
+        Tag <0x50060100,0x50060123> "EFLASH_CONTROLLER" // EFLASH_CONTROLLER registers
+        Tag <0x34000000,0x34000047> "QSPI_FLASH/RAM" // QSPI_FLASH/RAM registers
+        Tag <0x50000400,0x50000497> "REAL_TIME_CLOCK" // REAL_TIME_CLOCK registers
+        Tag <0x50000500,0x5000051b> "QUADRATURE_DECODER" // QUADRATURE_DECODER registers
+        Tag <0x50020300,0x500203a7> "I2C_CONTROLLER" // I2C_CONTROLLER registers
+        Tag <0x50000300,0x50000303> "DCDC_CONVERTER" // DCDC_CONVERTER registers
+        Tag <0x50050200,0x50050203> "CHIP_ID1" 0x32
+        Tag <0x50050204,0x50050207> "CHIP_ID2" 0x36
+        Tag <0x50050208,0x5005020B> "CHIP_ID3" 0x33
+        Tag <0x5005020C,0x5005020F> "CHIP_ID4" 0x34
+        Tag <0x50050210,0x50050213> "CHIP_SWC" 0x2
+        Tag <0x50050214,0x50050217> "CHIP_REVISION" 0x41
+        Tag <0x500502F8,0x500502FB> "CHIP_LAYOUT_REVISION" 0x45
+        Tag <0x500502FC,0x500502FF> "CHIP_METAL_OPTION" 0x0
+        Tag <0x50000100,0x50000163> "WAKE-UP_CONTROLLER" // WAKE_UP_CONTROLLER registers
+        Tag <0x50020400,0x5002041F> "GENERAL_PURPOSE_or_ADC_1" // GENERAL_PURPOSE_or_ADC_1 registers
+        Tag <0x50000200,0x5000029b> "POWER_DOMAIN_CONTROLLER" // POWER_DOMAIN_CONTROLLER registers
+        Tag <0x50020504,0x50020507> "CLK_COM"
+        Tag <0x50020508,0x5002050B> "SET_CLK_COM"
+        Tag <0x5002050C,0x5002050F> "RESET_CLK_COM"
+        Tag <0x50040C04,0x50040C07> "CLK_PER"
+        Tag <0x50040C08,0x50040C0B> "SET_CLK_PER"
+        Tag <0x50040C0C,0x50040C0F> "RESET_CLK_PER"
+        Tag <0x50050500,0x50050503> "CLK_SYS"
+        Tag <0x1a0c0020,0x1a0c0053> "CORTEX_M33_CACHE_CONTROLLER" // CORTEX_M33_CACHE_CONTROLLER registers
+        Tag <0x1a1c0020,0x1a1c0053> "CORTEX_M0+_CACHE_CONTROLLER" // CORTEX_M0+_CACHE_CONTROLLER registers
+        Tag <0x50030040,0x5003004f> "AUDIO_UNIT" // AUDIO_UNIT registers
+        Tag <0x50030400,0x50030433> "AUDIO_ACCELERATOR" // AUDIO_ACCELERATOR registers
+        Tag <0x50040b10,0x50040b1f> "ANALOG_MISCELLANEOUS" // ANALOG_MISCELLANEOUS registers
+        Tag <0x30040000,0x30040103> "CRYPTO-ENGINE" // CRYPTO-ENGINE registers

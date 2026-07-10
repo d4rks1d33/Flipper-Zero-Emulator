@@ -19,9 +19,17 @@
 #   include @scripts/run_updater.resc
 
 mach create "flipper"
+
+# Custom types referenced by the platform must be compiled before it loads.
+i @peripherals/STM32WB55_EXTI.cs
+i @peripherals/SYSCFG_WB55.cs
+i @peripherals/IPCC_WB55.cs
+
 machine LoadPlatformDescription @platform/stm32wb55_flipper.repl
 
-# Custom peripherals
+# Custom peripherals. ITransactionResettable is a shared interface used by both
+# Spi2Router and FlipperSdCard, so it must be compiled BEFORE either of them.
+i @peripherals/ITransactionResettable.cs
 i @peripherals/LP5562.cs
 i @peripherals/ST7567.cs
 i @peripherals/CC1101.cs
@@ -35,7 +43,7 @@ machine LoadPlatformDescriptionFromString "lp5562: Sensors.LP5562 @ i2c1 0x30"
 # SPI2 shared by display (CS=PC11) and SD card (CS=PC12).
 # Define display, SD card and the router together so references resolve.
 # FlipperSdCard is our own SD-SPI model (Renode's stock SD SPI mode is fragile
-# with the Flipper driver). Requires firmware built with -DFLIPPER_EMULATOR.
+# with the Flipper driver). Works with stock, unpatched firmware.
 machine LoadPlatformDescriptionFromString
 """
 display: Video.ST7567 @ none
@@ -52,12 +60,25 @@ machine LoadPlatformDescriptionFromString "gpioPortC: { 11 -> spi2mux@0; 12 -> s
 machine LoadPlatformDescriptionFromString "gpioPortB: { 1 -> spi2mux@2 }"
 
 # SPI1 radios
-machine LoadPlatformDescriptionFromString "spi1radio: SPI.Spi1Router @ spi1"
+machine LoadPlatformDescriptionFromString "spi1radio: SPI.Spi1Router @ spi1 { 0 -> gpioPortA@1; 1 -> gpioPortA@2 }"
 machine LoadPlatformDescriptionFromString "gpioPortD: { 0 -> spi1radio@0 }"
 machine LoadPlatformDescriptionFromString "gpioPortE: { 4 -> spi1radio@1 }"
 
 # SD card detect: PC10 low = present
 gpioPortC OnGPIO 10 false
+
+# Buttons idle so the boot decision doesn't fall into DFU/recovery (Left held =
+# DFU, Up held = recovery). Active-low buttons HIGH, OK (PH3) LOW.
+macro SetButtonsIdle
+"""
+    gpioPortB OnGPIO 10 true
+    gpioPortB OnGPIO 11 true
+    gpioPortB OnGPIO 12 true
+    gpioPortC OnGPIO 6 true
+    gpioPortC OnGPIO 13 true
+    gpioPortH OnGPIO 3 false
+    gpioPortC OnGPIO 10 false
+"""
 
 # USART1 debug console over TCP
 emulation CreateServerSocketTerminal 3456 "flipper_uart" false
@@ -78,31 +99,68 @@ macro ProvisionOtp
 """
 
 # Force RTC boot mode = Update, with a valid RTC header.
-# Header (BKP0R @ 0x40002850): magic 0x10F1, version 0
-# System (BKP1R @ 0x40002854): boot_mode (bits 19:16) = 2 (Update)
+# SystemReg layout (BKP1R @ 0x40002854): log_level[3:0], log_reserved[7:4],
+# flags[15:8], boot_mode[19:16], ... so boot_mode lives in bits 19:16.
+# FuriHalRtcBootModeUpdate = 3 -> main.c calls flipper_boot_update_exec(), which
+# reads /.fupdate, loads updater.bin into SRAM1 and jumps to it.
+# Header (BKP0R @ 0x40002850): magic 0x10F1, version 0.
 macro ForceUpdateBoot
 """
     sysbus WriteDoubleWord 0x40002850 0x000010F1
-    sysbus WriteDoubleWord 0x40002854 0x00020000
+    sysbus WriteDoubleWord 0x40002854 0x00030000
 """
 
-macro LoadFirmware
+macro SetBootVector
 """
-    sysbus LoadBinary $firmware_bin 0x08000000
     cpu VectorTableOffset 0x08000000
 """
 
+# ─── Reset macro: handling the OTA reboot state machine ──────────────────────
+# A firmware-triggered reset (NVIC SYSRESETREQ -> furi_hal_power_reset) causes
+# Renode to reset the whole machine, which re-runs THIS macro (Monitor binds the
+# `reset` macro to MachineReset). The initial ForceUpdateBoot below runs ONCE at
+# script load; on subsequent (firmware-triggered) resets we must NOT force Update
+# mode again, otherwise the freshly flashed image is never allowed to run and the
+# updater re-runs forever (boot loop).
+#
+# We rely on:
+#   * the flash being a NON-VOLATILE disk-backed MappedMemory (persistenceFile in
+#     the platform .repl): the image the RAM updater wrote to 0x08000000 survives
+#     the reboot -- and even a full power cycle (a new run.sh process);
+#   * rtc_wb55.py persisting the RTC backup registers (boot_mode) across reset,
+#     emulating the VBAT-backed backup domain, so the updater's PostUpdate mode
+#     is still in effect after the reboot.
+#
+# Boot-mode handoff across reboots (all driven by the persisted RTC):
+#   boot#0  Update (forced here)  -> main.c: flipper_boot_update_exec ->
+#                                     RAM updater flashes fw, sets PostUpdate,
+#                                     furi_hal_power_reset
+#   boot#1  PostUpdate (persisted)-> main.c: normal boot; updater app is "armed",
+#                                     runs post-update (resources/splash), then
+#                                     update_operation_disarm -> boot_mode=Normal,
+#                                     deletes /.fupdate, furi_hal_power_reset
+#   boot#2  Normal (persisted)    -> main.c: normal boot to desktop (NEW firmware)
+#
+# The reset macro only re-applies volatile host-side state (OTP, button levels,
+# VTOR); it deliberately omits ForceUpdateBoot and never reloads flash.
 macro reset
 """
     runMacro $ProvisionOtp
-    runMacro $LoadFirmware
-    runMacro $ForceUpdateBoot
+    runMacro $SetBootVector
+    runMacro $SetButtonsIdle
     start
 """
 
 runMacro $ProvisionOtp
-runMacro $LoadFirmware
+runMacro $SetBootVector
 runMacro $ForceUpdateBoot
+runMacro $SetButtonsIdle
+
+# Faithful OB + radio-stack validation params, generated by prepare_sdcard.py
+# from the package's update.fuf. Pre-loads the option-byte reference at
+# 0x1FFF8000 and tells the IPCC model the installed wireless-stack version so the
+# updater's radio + OB stages validate as no-ops (see prepare_sdcard.py).
+include @scripts/update_manifest_params.resc
 
 logLevel 3 sysbus
 logLevel 3 spi2

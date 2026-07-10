@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <RootNamespace>crypto</RootNamespace>
+    <AssemblyName>crypto</AssemblyName>
+    <NoWarn>618;672;CA1416;CA2200</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="test\**\*.*" />
+    <Compile Remove="PskTls13ClientTest.cs" />
+    <Compile Remove="MockPskTls13Client.cs" />
+  </ItemGroup>
+</Project>

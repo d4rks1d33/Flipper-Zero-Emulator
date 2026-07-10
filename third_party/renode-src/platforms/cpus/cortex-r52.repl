@@ -1,0 +1,28 @@
+cpu: CPU.ARMv8R @ sysbus
+    cpuType: "cortex-r52"
+    genericInterruptController: gic
+    cpuId: 0
+
+gic: IRQControllers.ARM_GenericInterruptController @ {
+        sysbus new Bus.BusMultiRegistration { address: 0xAF000000; size: 0x10000; region: "distributor" };
+        sysbus new IRQControllers.ArmGicRedistributorRegistration { attachedCPU: cpu; address: 0xAF100000 }
+    }
+    supportsTwoSecurityStates: false
+    architectureVersion: .GICv3
+    // GIC -> ARM CPU interrupt connections are generated automatically
+
+timer: Timers.ARM_GenericTimer @ cpu
+    frequency: 100000000
+    defaultCounterFrequencyRegister: 100000000
+    EL1PhysicalTimerIRQ -> gic#0@30
+    EL1VirtualTimerIRQ -> gic#0@27
+    NonSecureEL2PhysicalTimerIRQ -> gic#0@26
+
+dram0: Memory.MappedMemory @ sysbus 0x0
+    size: 0x80000000
+
+flash0: Memory.MappedMemory @ sysbus 0x88000000
+    size: 0x04000000
+
+uart0: UART.PL011 @ sysbus 0x9c090000
+    -> gic@5

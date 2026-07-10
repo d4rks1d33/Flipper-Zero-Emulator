@@ -1,0 +1,14 @@
+pwr: Python.PythonPeripheral @ sysbus 0x46020800
+    size: 0x400
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+sysbus:
+    init add:
+        ApplySVD @https://dl.antmicro.com/projects/renode/svd/STM32U5XX.svd.gz
+        Unregister "sysbus.rcc"
+        Machine PyDevFromFile @scripts/pydev/flipflop.py 0x46020C1C 0x4 True "RCC_CFGR1"
+        Tag <0x46020C00 4> "RCC_CR" 0xFFFFFFFF
+        Tag <0x46020CF0 4> "RCC_BDCR" 0xFFFFFFFF
+        Tag <0x46020828 4> "PWR_DBPR" 0xFFFFFFFF
+        Tag <0x40030404 4> "ICACHE_SR_IDLE" 0x0

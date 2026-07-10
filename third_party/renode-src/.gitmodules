@@ -1,0 +1,46 @@
+[submodule "src/Infrastructure"]
+	path = src/Infrastructure
+	url = https://github.com/renode/renode-infrastructure.git
+[submodule "lib/termsharp"]
+	path = lib/termsharp
+	url = https://github.com/antmicro/termsharp.git
+[submodule "lib/FdtSharp"]
+	path = lib/FdtSharp
+	url = https://github.com/antmicro/FdtSharp.git
+[submodule "lib/Packet.Net"]
+	path = lib/Packet.Net
+	url = https://github.com/antmicro/Packet.Net.git
+[submodule "lib/AntShell"]
+	path = lib/AntShell
+	url = https://github.com/antmicro/AntShell.git
+[submodule "lib/ELFSharp"]
+	path = lib/ELFSharp
+	url = https://github.com/antmicro/elfsharp.git
+[submodule "lib/Migrant"]
+	path = lib/Migrant
+	url = https://github.com/antmicro/Migrant.git
+[submodule "lib/cctask"]
+	path = lib/cctask
+	url = https://github.com/antmicro/cctask.git
+[submodule "lib/options-parser"]
+	path = lib/options-parser
+	url = https://github.com/antmicro/options-parser
+[submodule "lib/CxxDemangler"]
+	path = lib/CxxDemangler
+	url = https://github.com/antmicro/CxxDemangler
+[submodule "lib/InpliTftpServer"]
+	path = lib/InpliTftpServer
+	url = https://github.com/antmicro/InpliTftpServer.git
+[submodule "lib/BigGustave"]
+	path = lib/BigGustave
+	url = https://github.com/antmicro/BigGustave.git
+	branch = renode-build
+[submodule "lib/bc-csharp"]
+	path = lib/bc-csharp
+	url = https://github.com/antmicro/bc-csharp.git
+[submodule "tools/dts2repl"]
+	path = tools/dts2repl
+	url = https://github.com/antmicro/dts2repl.git
+[submodule "tools/models_analyzer"]
+	path = tools/models_analyzer
+	url = https://github.com/antmicro/renode-models-analyzer.git

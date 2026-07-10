@@ -1,0 +1,7 @@
+usbHub: USBDeprecated.UsbHub @ usbEhci2 1
+    nrPorts: 8
+
+usbMouse: USBDeprecated.USBMouse @ usbHub 2
+
+usbKeyboard: USBDeprecated.USBKeyboard @ usbHub 1
+

@@ -1,0 +1,199 @@
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 32000000
+    IRQ -> cpu@0
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m3"
+    nvic: nvic
+
+systemMemory: Memory.MappedMemory @ sysbus 0x1FF00000
+    size: 0x10000
+
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+
+spi2: SPI.STM32SPI @ sysbus 0x40003800
+
+spi3: SPI.STM32SPI @ sysbus 0x40003C00
+
+exti: IRQControllers.STM32F4_EXTI @ sysbus 0x40010400
+    numberOfOutputLines: 24
+    [0-4] -> nvic@[6-10]
+    [5-9] -> nvicInput23@[0-4]
+    [10-15] -> nvicInput40@[0-5]
+    [20] -> nvic@[3]
+
+nvicInput23: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 5
+    -> nvic@23
+
+nvicInput40: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 6
+    -> nvic@40
+
+
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0xC000
+
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size:0x60000
+
+usart1: UART.STM32_UART @ sysbus <0x40013800, +0x100>
+    -> nvic@37
+
+usart2: UART.STM32_UART @ sysbus <0x40004400, +0x100>
+    -> nvic@38
+
+usart3: UART.STM32_UART @ sysbus <0x40004800, +0x100>
+    -> nvic@39
+
+gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x40020000, +0x400>
+    modeResetValue: 0xA8000000
+    pullUpPullDownResetValue: 0x64000000
+    numberOfAFs: 16
+
+gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x40020400, +0x400>
+    modeResetValue: 0x00000280
+    outputSpeedResetValue: 0x000000C0
+    pullUpPullDownResetValue: 0x00000100
+    numberOfAFs: 16
+    [0-15] -> exti@[0-15]
+
+gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x40020800, +0x400>
+    numberOfAFs: 16
+    11 -> exti@11
+
+gpioPortD: GPIOPort.STM32_GPIOPort @ sysbus <0x40020C00, +0x400>
+    numberOfAFs: 16
+
+gpioPortE: GPIOPort.STM32_GPIOPort @ sysbus <0x40021000, +0x400>
+    numberOfAFs: 16
+
+gpioPortF: GPIOPort.STM32_GPIOPort @ sysbus <0x40021800, +0x400>
+    numberOfAFs: 16
+
+gpioPortG: GPIOPort.STM32_GPIOPort @ sysbus <0x40021C00, +0x400>
+    numberOfAFs: 16
+
+gpioPortH: GPIOPort.STM32_GPIOPort @ sysbus <0x40021400, +0x400>
+    numberOfAFs: 16
+
+dma1: DMA.STM32LDMA @ sysbus 0x40026000
+    [0-7] -> nvic@[11-17,47]
+
+i2c1: I2C.STM32F4_I2C @ sysbus 0x40005400
+    EventInterrupt -> nvic@31
+    ErrorInterrupt -> nvic@32
+
+rtc: STM32L_RTC @ sysbus <0x40002800, +0x400>
+    -> exti@20
+
+bitbandPeripherals: Miscellaneous.BitBanding @ sysbus <0x42000000, +0x2000000>
+    peripheralBase: 0x40000000
+
+bitbandSram: Miscellaneous.BitBanding @ sysbus <0x22000000, +0x200000>
+    peripheralBase: 0x20000000
+
+timer2: Timers.STM32_Timer @ sysbus 0x40000000
+    -> nvic@28
+    frequency: 10000000
+    initialLimit: 0xFFFFFFFF
+
+timer3: Timers.STM32_Timer @ sysbus 0x40000400
+    -> nvic@29
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer4: Timers.STM32_Timer @ sysbus 0x40000800
+    -> nvic@30
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer5: Timers.STM32_Timer @ sysbus 0x40000C00
+    -> nvic@45
+    frequency: 10000000
+    initialLimit: 0xFFFFFFFF
+
+timer6: Timers.STM32_Timer @ sysbus 0x40001000
+    -> nvic@43
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer7: Timers.STM32_Timer @ sysbus 0x40001400
+    -> nvic@44
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer9: Timers.STM32_Timer @ sysbus 0x40010800
+    -> nvic@25
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer10: Timers.STM32_Timer @ sysbus 0x40010C00
+    -> nvic@26
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer11: Timers.STM32_Timer @ sysbus 0x40011000
+    -> nvic@27
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+// Alternate function mapping connections. For more details see `stm32l071.repl`.
+timer2:
+    0 -> gpioPortA#00@01 | gpioPortA#05@01 | gpioPortA#15@01 | gpioPortE#09@01
+    1 -> gpioPortA#01@01 | gpioPortB#03@01 | gpioPortE#10@01
+    2 -> gpioPortA#02@01 | gpioPortB#10@01 | gpioPortE#11@01
+    3 -> gpioPortA#03@01 | gpioPortB#11@01 | gpioPortE#12@01
+
+timer3:
+    0 -> gpioPortA#06@02 | gpioPortB#04@02 | gpioPortC#06@02 | gpioPortE#03@02
+    1 -> gpioPortA#07@02 | gpioPortB#05@02 | gpioPortC#07@02 | gpioPortE#04@02
+    2 -> gpioPortB#00@02 | gpioPortC#08@02
+    3 -> gpioPortB#01@02 | gpioPortC#09@02
+
+timer4:
+    0 -> gpioPortB#06@02 | gpioPortD#12@02
+    1 -> gpioPortB#07@02 | gpioPortD#13@02
+    2 -> gpioPortB#08@02 | gpioPortD#14@02
+    3 -> gpioPortB#09@02 | gpioPortD#15@02
+
+timer5:
+    0 -> gpioPortA#00@02
+    1 -> gpioPortA#01@02 | gpioPortF#07@02
+    2 -> gpioPortA#02@02 | gpioPortF#08@02
+    3 -> gpioPortA#03@02 | gpioPortF#09@02
+
+timer9:
+    0 -> gpioPortA#02@03 | gpioPortB#13@03 | gpioPortD#00@03 | gpioPortE#05@03
+    1 -> gpioPortA#03@03 | gpioPortB#14@03 | gpioPortD#07@03 | gpioPortE#06@03
+
+timer10:
+    0 -> gpioPortA#06@03 | gpioPortB#08@03 | gpioPortB#12@03 | gpioPortE#00@03
+
+timer11:
+    0 -> gpioPortA#07@03 | gpioPortB#09@03 | gpioPortB#15@03 | gpioPortE#01@03
+
+sysbus:
+    init:
+        ApplySVD @https://dl.antmicro.com/projects/renode/svd/STM32L1xx.svd.gz
+        Tag <0x4000280C, 0x40002810> "RTC_ISR" 0x60
+        SilenceRange <0x40003000 4>
+        Tag <0xE0042000 4> "MCU_ID" 0x10000416
+        Tag <0x40012400 4> "ADC_SR" 0xFFFFFFFF
+        Tag <0x40023C18 4> "FLASH_SR"  0xE
+        Tag <0x40007000 4> "PWR_CONTROL" 0x1000
+        Tag <0x40007004 4> "PWR_STATUS"  0x8
+        // Hard set all oscillator RDY bits
+        Tag <0x40023800 4> "RCC_CR" 0x2020202
+
+rccCsr: Python.PythonPeripheral @ sysbus 0x40023834
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+rccIcscr: Python.PythonPeripheral @ sysbus 0x40023804
+    size: 0x4
+    initable: false
+    script: "request.Value=0xB000"
+

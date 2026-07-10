@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "peakrdl-repl"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+requires-python = ">=3.11"
+dependencies = [
+    # We pin PeakRDL's direct dependencies since they had history of breaking in the past
+    "peakrdl==1.5.0",
+    "peakrdl-cheader==1.0.0",
+    "peakrdl-cli==1.5.0",
+    "peakrdl-html==2.12.1",
+    "peakrdl-ipxact==3.5.0",
+    "peakrdl-regblock==1.2.0",
+    "peakrdl-systemrdl==1.0.1",
+    "peakrdl-uvm==2.4.0",
+    "systemrdl-compiler >= 1.21.0, < 2",
+]
+
+authors = [
+    {name="Antmicro"},
+]
+
+description = "Generate Renode REPL platform files from a SystemRDL model"
+readme = "README.md"
+
+keywords = [
+    "SystemRDL", "PeakRDL", "CSR", "compiler", "tool", "platform", "generator",
+    "repl", "renode", "header", "software",
+]
+
+[project.urls]
+Source = "https://github.com/renode/renode/tree/master/tools/PeakRDL-repl"
+Tracker = "https://github.com/renode/renode/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "peakrdl_repl.__about__.__version__"}
+
+[project.entry-points."peakrdl.exporters"]
+renode-repl = "peakrdl_repl.__peakrdl__:ReplExporterDescriptor"

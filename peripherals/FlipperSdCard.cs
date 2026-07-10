@@ -20,7 +20,7 @@ using Antmicro.Renode.Peripherals.SPI;
 
 namespace Antmicro.Renode.Peripherals.SPI
 {
-    public class FlipperSdCard : ISPIPeripheral, IDisposable
+    public class FlipperSdCard : ISPIPeripheral, ITransactionResettable, IDisposable
     {
         public FlipperSdCard(IMachine machine, string imageFile, long capacity)
         {
@@ -38,6 +38,21 @@ namespace Antmicro.Renode.Peripherals.SPI
 
         public void Reset()
         {
+            // A board reset (the OTA updater reboots several times mid-flash) must
+            // not silently swallow an SD write that was in flight. A block whose
+            // 512 bytes already arrived was flushed to disk immediately (see
+            // FlushWrite in WritePhase.Data), so completed blocks are safe. Only a
+            // PARTIALLY received data block (writePhase == Data, 0 < writePos < 512)
+            // is genuinely torn: on real hardware a power-cycle mid-sector can also
+            // lose that sector, so we do NOT fabricate a completed write, but we DO
+            // log it loudly -- a silent drop here is exactly the kind of thing that
+            // makes an interrupted-update bug impossible to diagnose.
+            if(writePhase == WritePhase.Data && writeBuf != null && writePos > 0)
+            {
+                this.Log(LogLevel.Warning,
+                    "SD reset with a partial block in flight (addr=0x{0:X}, {1}/512 bytes) -- torn write DISCARDED (as a real card power-cycle would).",
+                    (long)writeAddress * 512L, writePos);
+            }
             state = St.Idle;
             cmdBuf = new byte[6];
             cmdLen = 0;
@@ -49,7 +64,8 @@ namespace Antmicro.Renode.Peripherals.SPI
             writeAddress = 0;
             writeBuf = null;
             writePos = 0;
-            expectingWriteToken = false;
+            writePhase = WritePhase.None;
+            multiBlock = false;
         }
 
         public void Dispose()
@@ -80,41 +96,13 @@ namespace Antmicro.Renode.Peripherals.SPI
                 return b;
             }
 
-            // 3) If we are receiving a write block.
-            if(writeBuf != null)
+            // 3) If we are inside a write transaction, run the write state
+            //    machine. This is intentionally positional (no queued response
+            //    bytes) so that the CS deselect/reselect the driver performs in
+            //    the middle of sd_spi_get_data_response() cannot desynchronise it.
+            if(writePhase != WritePhase.None)
             {
-                if(expectingWriteToken)
-                {
-                    if(data == 0xFE) // start-block token
-                    {
-                        expectingWriteToken = false;
-                        writePos = 0;
-                    }
-                    return 0xFF;
-                }
-                if(writePos < 512)
-                {
-                    writeBuf[writePos++] = data;
-                    return 0xFF;
-                }
-                // two CRC bytes then a data-response
-                if(writePos < 514)
-                {
-                    writePos++;
-                    if(writePos == 514)
-                    {
-                        FlushWrite();
-                        // data response: 0x05 = data accepted
-                        respQueue.Enqueue(0x05);
-                        // then busy(0x00) once, then ready(0xFF)
-                        respQueue.Enqueue(0x00);
-                        respQueue.Enqueue(0xFF);
-                        writeBuf = null;
-                        writePos = 0;
-                    }
-                    return 0xFF;
-                }
-                return 0xFF;
+                return WriteTransmit(data);
             }
 
             // 4) Command assembly. A command byte has bit7=0,bit6=1 (0x40 mask).
@@ -141,10 +129,135 @@ namespace Antmicro.Renode.Peripherals.SPI
             }
         }
 
+        // Positional write state machine. Mirrors real SD-SPI hardware: after a
+        // WRITE command the driver clocks NWR dummy bytes, then a start token,
+        // then 512 data bytes, then 2 CRC bytes; the card answers with a single
+        // data-response byte (0x05 = accepted) followed by "busy" (0x00) while it
+        // programs and then 0xFF forever once ready. We keep MISO at 0xFF for the
+        // whole tail so the driver's single busy read AND its wait_for_data(0xFF)
+        // are both satisfied no matter where its CS toggles land.
+        private byte WriteTransmit(byte data)
+        {
+            switch(writePhase)
+            {
+                case WritePhase.WaitToken:
+                    // Accept the correct start token for the command that was
+                    // issued: 0xFE for CMD24 (single), 0xFC for CMD25 (multi).
+                    // Anything else (NWR dummy 0xFF, etc.) is ignored.
+                    if((!multiBlock && data == 0xFE) || (multiBlock && data == 0xFC))
+                    {
+                        writePos = 0;
+                        writePhase = WritePhase.Data;
+                    }
+                    else if(multiBlock && data == 0xFD)
+                    {
+                        // Stop-tran token: end of a CMD25 multi-block write.
+                        EndWrite();
+                    }
+                    return 0xFF;
+
+                case WritePhase.Data:
+                    writeBuf[writePos++] = data;
+                    if(writePos == 512)
+                    {
+                        // Commit the block now (data is complete). The 2 CRC bytes
+                        // that follow carry no information for this model, so we do
+                        // not need to count them precisely.
+                        FlushWrite();
+                        writePhase = WritePhase.Crc;
+                        crcCount = 0;
+                    }
+                    return 0xFF;
+
+                case WritePhase.Crc:
+                    // Absorb the CRC bytes the driver clocks out (sd_spi_purge_crc
+                    // sends 2). We MUST NOT advance to the response on a fixed
+                    // count: Renode's STM32SPI + furi_hal_spi_bus_end_txrx() can
+                    // clock one phantom byte across the DMA-write / polled-read
+                    // boundary, which would shift the 0x05 accepted token by a
+                    // slot and make sd_spi_get_data_response() read 0xFF instead
+                    // of 0x05 (responce & 0x1F == 0x1F -> OtherError -> write
+                    // fails -> firmware re-inits the card).
+                    //
+                    // sd_spi_get_data_response() is the ONLY reader that inspects
+                    // the returned byte's low 5 bits; purge_crc discards its two
+                    // reads. So we keep returning 0xFF for the CRC/purge window
+                    // and only arm the 0x05 once the driver has clocked enough
+                    // bytes that its data-response read is guaranteed to be next.
+                    // Two absorbed bytes is the nominal purge_crc window; from the
+                    // 3rd absorbed read onward the driver is in get_data_response,
+                    // so emit the accepted token there.
+                    crcCount++;
+                    if(crcCount >= 2)
+                    {
+                        writePhase = WritePhase.Response;
+                    }
+                    return 0xFF;
+
+                case WritePhase.Response:
+                    // The driver's first get_data_response() read must observe
+                    // 0x05. It always clocks 0xFF on MOSI, and so do the phantom
+                    // purge/drain reads, so we cannot tell them apart by content.
+                    // Deliver 0x05 exactly once here; every read before it in the
+                    // Crc phase returned 0xFF (a legal "still busy / not yet"
+                    // value that the driver's purge_crc simply discards), and
+                    // every read after it returns 0xFF (card ready). This makes
+                    // the accepted token robust to a +/-1 byte drift around the
+                    // CRC boundary.
+                    writePhase = WritePhase.Busy;
+                    return 0x05;
+
+                case WritePhase.Busy:
+                    // From here on the card is "ready": always return 0xFF. For a
+                    // single block (CMD24) the driver will send a new command; for
+                    // a multi-block (CMD25) it will send the next start token or
+                    // the stop-tran token, so stay in WaitToken for CMD25.
+                    if(multiBlock)
+                    {
+                        writePhase = WritePhase.WaitToken;
+                    }
+                    else
+                    {
+                        EndWrite();
+                    }
+                    return 0xFF;
+            }
+            return 0xFF;
+        }
+
+        private void EndWrite()
+        {
+            writeBuf = null;
+            writePos = 0;
+            writePhase = WritePhase.None;
+            multiBlock = false;
+        }
+
         public void FinishTransmission()
         {
             // Keep partial state across CS toggles; only clear the command byte
             // accumulator so a fresh transaction starts clean.
+            cmdLen = 0;
+        }
+
+        // Called by the router when CS is freshly asserted (a new SPI transaction
+        // begins). A real SD card resets its command framing on every CS
+        // deselect->reselect, so we always drop any leftover read-block bytes,
+        // queued response bytes and a half-assembled command: they belong to an
+        // already-completed transfer and must never bleed into the next command.
+        //
+        // The one thing we must NOT touch is an in-progress write's data phase.
+        // sd_spi_get_data_response() legitimately toggles CS between emitting the
+        // 0x05 accepted token and waiting for 0xFF, and the FreeRTOS GUI task can
+        // interleave a display transaction across that gap. Because the write
+        // state machine is positional (WritePhase) and never parks bytes in
+        // respQueue/readBlock, clearing those queues here is always safe and can
+        // never desynchronise the write.
+        public void BeginTransaction()
+        {
+            respQueue.Clear();
+            readBlock = null;
+            readBlockPos = 0;
             cmdLen = 0;
         }
 
@@ -153,6 +266,7 @@ namespace Antmicro.Renode.Peripherals.SPI
             int cmd = cmdBuf[0] & 0x3F;
             uint arg = (uint)((cmdBuf[1] << 24) | (cmdBuf[2] << 16) |
                               (cmdBuf[3] << 8) | cmdBuf[4]);
+
 
             // R1 byte: bit0 = in-idle-state.
             byte r1 = (byte)(idle ? 0x01 : 0x00);
@@ -202,11 +316,14 @@ namespace Antmicro.Renode.Peripherals.SPI
                     QueueReadBlock(arg);
                     break;
                 case 24: // WRITE_SINGLE_BLOCK
-                case 25:
+                case 25: // WRITE_MULTIPLE_BLOCK
                     respQueue.Enqueue(0x00);
                     writeAddress = arg;
                     writeBuf = new byte[512];
-                    expectingWriteToken = true;
+                    writePos = 0;
+                    crcCount = 0;
+                    multiBlock = (cmd == 25);
+                    writePhase = WritePhase.WaitToken;
                     break;
                 case 55: // APP_CMD
                     appCmd = true;
@@ -296,6 +413,12 @@ namespace Antmicro.Renode.Peripherals.SPI
             {
                 this.Log(LogLevel.Warning, "SD write @0x{0:X} failed: {1}", offset, e.Message);
             }
+            // For a multi-block write (CMD25) the next data block targets the
+            // following sector (SDHC addresses by block).
+            if(multiBlock)
+            {
+                writeAddress++;
+            }
         }
 
         private byte[] BuildCsd()
@@ -344,6 +467,18 @@ namespace Antmicro.Renode.Peripherals.SPI
 
         private enum St { Idle }
 
+        // Phases of a WRITE (CMD24/CMD25) transaction. Positional, so a CS toggle
+        // in the middle of the data-response handshake cannot desynchronise it.
+        private enum WritePhase
+        {
+            None,       // not writing
+            WaitToken,  // waiting for the 0xFE (single) / 0xFC (multi) start token
+            Data,       // clocking in the 512 data bytes
+            Crc,        // absorbing the 2 CRC bytes
+            Response,   // emit the 0x05 accepted token on the next read
+            Busy,       // programming done; hold MISO at 0xFF (card ready)
+        }
+
         private readonly long capacity;
         private readonly string imagePath;
         private readonly FileStream stream;
@@ -361,6 +496,8 @@ namespace Antmicro.Renode.Peripherals.SPI
         private uint writeAddress;
         private byte[] writeBuf;
         private int writePos;
-        private bool expectingWriteToken;
+        private WritePhase writePhase;
+        private int crcCount;
+        private bool multiBlock;
     }
 }

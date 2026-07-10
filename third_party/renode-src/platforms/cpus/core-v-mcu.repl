@@ -1,0 +1,59 @@
+bootRom: Memory.MappedMemory @ sysbus 0x1A000000
+    size: 0x2000
+
+ram: Memory.MappedMemory @ { sysbus 0x1C000000; sysbus 0x0 }
+    size: 0x80000
+
+cpu: CPU.CV32E40P @ sysbus
+    privilegedArchitecture: PrivilegedArchitecture.Priv1_11
+    // We are overriding the default value to include information about coreID and clusterID
+    HartId: 0x3e0
+
+itc_ev: IRQControllers.PULP_EventController @ itc
+    parent: itc
+
+itc: IRQControllers.PULP_InterruptController @ sysbus 0x1A109800
+    [0-31] -> cpu@[0-31]
+
+uart: UART.PULP_uDMA_UART @ sysbus 0x1A102100
+    RxIRQ -> itc_ev@4
+    TxIRQ -> itc_ev@5
+
+timer: Timers.PULP_Timer @ sysbus 0x1A10B000
+    frequency: 100000
+    [0, 1] -> itc@[10, 11]
+
+gpio: GPIOPort.PULP_APB_GPIO @ sysbus 0x1A101000
+
+i2s: Sound.PULP_I2S @ sysbus 0x1A102200
+    [0, 1, 2] -> itc_ev@[12, 13, 28]
+
+stdout: UART.PULP_STDOUT@ sysbus 0x1A10FF80
+
+i2c0: I2C.PULP_uDMA_I2C @ sysbus <0x1A102180, +0x80>
+    RxEvent -> itc_ev@8
+    TxEvent -> itc_ev@9
+
+spi: SPI.PULP_uDMA_SPI @ sysbus 0x1A102080
+    RxIRQ -> itc_ev@0
+    TxIRQ -> itc_ev@1
+    CmdIRQ -> itc_ev@2
+
+camera_controller: Sensors.PULP_uDMA_Camera @ sysbus 0x1A102280
+    IRQ -> itc_ev@16
+
+sysbus:
+    init:
+        Tag <0x1A100000, 0x1A100FFF> "FLL"
+
+        Tag <0x1A102000, 0x1A10207F> "UDMA"
+        Tag <0x1A102300, 0x1A10237F> "FILTER"
+        Tag <0x1A102380, 0x1A1023FF> "FPGA_CONTROL"
+
+        Tag <0x1A104000, 0x1A104FFF> "SOC_CONTROL"
+        Tag <0x1A105000, 0x1A105FFF> "ADVANCED_TIMER"
+        Tag <0x1A106000, 0x1A106FFF> "SOC_EVENT_GENERATOR"
+        Tag <0x1A109000, 0x1A1097FF> "EVENT/INTERRUPT_UNIT"
+        Tag <0x1A10B000, 0x1A10BFFF> "TIMER"
+        Tag <0x1A10C000, 0x1A10CFFF> "HWPE"
+        Tag <0x1A110000, 0x1A110FFF> "DEBUG_UNIT"

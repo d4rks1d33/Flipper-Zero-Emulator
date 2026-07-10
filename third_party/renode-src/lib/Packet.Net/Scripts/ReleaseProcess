@@ -1,0 +1,27 @@
+Generating release packages and updating source control (git)
+
+- Check that the version set in AssemblyInfo.cs is correct for the next release
+- Rebuild project
+- Run the unit tests in Test/, they should all pass (or you should know why
+  a given test isn't passing)
+- Make sure all outstanding changes are checked in
+- Tag trunk as the release, ex.
+  git tag -a PacketDotNet_X_Y_Z
+- Push tags to the server
+  git push --tags
+- Run build_release ~/packetdotnet_releases X.Y.Z X.Y.Z+1
+- Edit ~/packetdotnet_releases/PacketDotNet_X_Y_Z+1_ReleaseNotes.txt with any additional
+  notes about the changes in the newly released version
+
+Pushing changes out to the world
+- Log into the sourceforge website and go to 'Files'
+- Click on the Packet.Net folder to expand it
+- Click on 'Add Folder' and create a new folder with a name of the version, like '4.0.0'
+- Click on the name of the new folder
+- Upload files by clicking on 'Add File'
+-- Upload the release notes txt file, the bin file and the source files
+-- Click on the 'i' next to the bin file and select Windows, Linux, MacOS and BSD
+   and click save
+-- Click on the 'i' next to the src file and select Solaris and Others and click
+   save
+- Rename the release notes file to 'README' so it is properly detected as the README file by SourceForge

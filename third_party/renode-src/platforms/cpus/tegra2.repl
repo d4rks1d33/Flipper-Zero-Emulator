@@ -1,0 +1,176 @@
+uart0: UART.NS16550 @ sysbus <0x70006000, +0x100>
+    wideRegisters: true
+    -> gic@36
+
+uart3: UART.NS16550 @ sysbus <0x70006300, +0x100>
+    -> gic@39
+
+dmaHost1xA: DMA.TegraDmaHost1X @ sysbus 0x50010000
+
+dmaHost1xB: DMA.TegraDmaHost1X @ sysbus 0x50004000
+
+memory: Memory.MappedMemory @ {
+        sysbus 0;
+        sysbus 0x80000000
+    }
+    size: 0x20000000
+
+iRam: Memory.MappedMemory @ sysbus 0x40000000
+    size: 0x100000
+
+privateTimer: Timers.ARM_PrivateTimer @ sysbus 0x50040600
+    -> gic#0@29
+    frequency: 667000000
+
+gic: IRQControllers.ARM_GenericInterruptController @ {
+        sysbus new Bus.BusMultiRegistration { address: 0x50041000; size: 0x1000; region: "distributor" };
+        sysbus new Bus.BusMultiRegistration { address: 0x50040100; size: 0x100; region: "cpuInterface" }
+    }
+    supportsTwoSecurityStates: false
+    architectureVersion: .GICv1
+    // GIC -> ARM CPU interrupt connections are generated automatically
+
+tmr1: Timers.TegraTimer @ sysbus 0x60005000
+    -> gic@0
+
+tmr2: Timers.TegraTimer @ sysbus 0x60005008
+    -> gic@1
+
+tmrUs: Timers.TegraUsecTimer @ sysbus 0x60005010
+
+tmr3: Timers.TegraTimer @ sysbus 0x60005050
+    -> gic@41
+
+tmr4: Timers.TegraTimer @ sysbus 0x60005058
+    -> gic@42
+
+pl310: Cache.PL310 @ sysbus <0x50043000, +0x1000>
+
+scu: Miscellaneous.ArmSnoopControlUnit @ sysbus 0xF8F00000
+
+cpu: CPU.ARMv7A @ sysbus
+    cpuType: "cortex-a9"
+    genericInterruptController: gic
+
+usbEhci1: USBDeprecated.EHCIHostController @ sysbus <0xC5000000, +0x1000>
+    -> gic@20
+
+usbEhci2: USBDeprecated.EHCIHostController @ sysbus <0xC5004000, +0x1000>
+    -> gic@21
+
+usbEhci3: USBDeprecated.EHCIHostController @ sysbus <0xC5008000, +0x1000>
+    -> gic@23
+
+apbDma: DMA.TegraDma @ sysbus 0x6000A000
+    [0-15] -> gic@[104-119]
+
+i2c1: I2C.TegraI2CController @ sysbus <0x7000C000, +0x100>
+    -> gic@38
+
+i2c2: I2C.TegraI2CController @ sysbus <0x7000C400, +0x100>
+    -> gic@84
+
+i2c3: I2C.TegraI2CController @ sysbus <0x7000C500, +0x100>
+    -> gic@92
+
+fb1: Video.TegraDisplay @ sysbus 0x54240000
+
+syncPts: Video.TegraSyncpts @ sysbus 0x50000000
+
+dvc: I2C.TegraDVC @ sysbus <0x7000D000, +0x200>
+    -> gic@53
+
+pwrGateStatus: Python.PythonPeripheral @ sysbus 0x7000E438
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+memoryControllerMemsize: Python.PythonPeripheral @ sysbus 0x7000F410
+    size: 0x4
+    initable: true 
+    script: "request.Value = 0x60000"
+
+nandHack1: Python.PythonPeripheral @ sysbus 0x70008000
+    size: 0x4
+    initable: true
+    script: "request.Value = 0x0"
+
+nandHackNandStatus: Python.PythonPeripheral @ sysbus 0x70008004
+    size: 0x4
+    initable: true
+    script: "request.Value = 0x1 | (1<<8)"
+
+nanHackIsr: Python.PythonPeripheral @ sysbus 0x70008008
+    size: 0x4
+    initable: true
+    script: "request.Value = 0xFFFFFFFF"
+
+oscFreqDetStatus: Python.PythonPeripheral @ sysbus 0x6000605C
+    size: 0x4
+    initable: true
+    script: "request.Value = 732"
+
+pllC: Python.PythonPeripheral @ sysbus 0x60006080
+    size: 0x4
+    initable: true
+    script: "request.Value = ((1<<30) | (50 << 8) | 0xEC)"
+
+pllM: Python.PythonPeripheral @ sysbus 0x60006090
+    size: 0x4
+    initable: true
+    script: "request.Value = ((1<<30) | (333 << 8) | 0xEC)"
+
+pllP: Python.PythonPeripheral @ sysbus 0x600060A0
+    size: 0x4
+    initable: true
+    script: "request.Value = ((1<<28) |(1<<22)| (216 << 8) | 0xEC)"
+
+clkSrc: Python.PythonPeripheral @ sysbus 0x60006104
+    size: 0x90
+    initable: true
+    script: "request.Value = (1<<30)"
+
+apbMiscGpHidrev0: Python.PythonPeripheral @ sysbus 0x70000804
+    size: 0x4
+    initable: false
+    script: "request.Value = 0x2000"
+
+clockHack: Python.PythonPeripheral @ sysbus 0x60006020
+    size: 0x4
+    initable: true
+    script: "request.Value = 0x20000000"
+
+clkRstControllerSclkBurstPolicy0: Python.PythonPeripheral @ sysbus 0x60006028
+    size: 0x4
+    initable: true
+    script: "request.Value = 0x20000000"
+
+kfuseHack: Python.PythonPeripheral @ sysbus 0x7000F800
+    size: 0x4
+    initable: true
+    script: "request.Value = (0x4 << 16)"
+
+sysbus:
+    init:
+        SilenceRange <0x6000411C,0x6000411F>
+        SilenceRange <0x6000401C,0x6000401F>
+        SilenceRange <0x60004124,0x6000412B>
+        SilenceRange <0xC4000010,0xC4000013>
+        SilenceRange <0x7000F028,0x7000F02B>
+        Tag <0x60004000,0x60004FFF> "TEGRA_PRIMARY_ICTLR_BASE"
+        Tag <0x60006000,0x60006FFF> "CLOCK_AND_RESET"
+        Tag <0x6000D000,0x6000DFFF> "tegra-gpio"
+        Tag <0x7000F000,0x7000F3FF> "memory-controller"
+        Tag <0x70000000,0x70000FFF> "MISC"
+        Tag <0x6000C000,0x6000CFFF> "CACHE_CTLR"
+        Tag <0x7000E000,0x7000E0FF> "RTC"
+        Tag <0x50000000,0x50023FFF> "NVRM_GRAPHICS_HOST"
+        Tag <0x7000E400,0x7000E4FF> "PMC"
+        Tag <0x7000F800,0x7000FBFF> "KFUSE"
+        Tag <0x6000F000,0x6000FFFF> "Exception_vectors"
+        Tag <0x50040000,0x50041FFF> "ARM_PERIPHBASE"
+        Tag <0x54200000,0x5420FFFF> "DISPLAYA"
+        Tag <0x54280000,0x5428FFFF> "HDMI"
+        Tag <0x54080000,0x5408FFFF> "VI_CSI"
+        Tag <0x7000E4A0,0x7000E4A3> "APBDEV_PMC_SCRATCH20_0" 0x10000000
+

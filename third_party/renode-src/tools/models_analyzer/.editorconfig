@@ -1,0 +1,6 @@
+[*.cs]
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = false
+csharp_indent_switch_labels = true
+csharp_indent_case_contents = true
+csharp_space_before_colo_in_inheritance_clause = false

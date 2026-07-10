@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "peakrdl-renode"
+dynamic = ["version"]
+requires-python = ">=3.11"
+dependencies = [
+    # We pin PeakRDL's direct dependencies since they had history of breaking in the past
+    "peakrdl==1.5.0",
+    "peakrdl-cheader==1.0.0",
+    "peakrdl-cli==1.5.0",
+    "peakrdl-html==2.12.1",
+    "peakrdl-ipxact==3.5.0",
+    "peakrdl-regblock==1.2.0",
+    "peakrdl-systemrdl==1.0.1",
+    "peakrdl-uvm==2.4.0",
+    "systemrdl-compiler >= 1.21.0, < 2",
+    "case-converter",
+]
+
+authors = [
+    {name="Krzysztof Boroński, Antmicro"},
+]
+
+description = "Generate Renode C# files from a SystemRDL register model"
+readme = "README.md"
+
+keywords = [
+    "SystemRDL", "PeakRDL", "CSR", "compiler", "tool", "registers", "generator",
+    "C#", "renode", "header", "software",
+]
+
+[project.urls]
+Source = "https://github.com/renode/renode/tree/master/tools/PeakRDL-renode"
+Tracker = "https://github.com/renode/renode/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "peakrdl_renode.__about__.__version__"}
+
+[project.entry-points."peakrdl.exporters"]
+renode = "peakrdl_renode.__peakrdl__:Exporter"

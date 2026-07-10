@@ -1,0 +1,16 @@
+:name: X86_64-KVM Bios
+:description: This script runs Seabios on a bare x86_64 platform in KVM.
+
+$name?="x86_64-kvm"
+mach create $name
+
+$bin?=@https://dl.antmicro.com/projects/renode/virt_x86--seabios.bin-s_262144-bf6c73a297b2764eb5f5bbe34297987c16648718
+machine LoadPlatformDescription @platforms/cpus/x86_64-kvm.repl
+
+showAnalyzer uart
+
+macro reset
+"""
+    sysbus LoadBinary $bin 0xc0000
+"""
+runMacro $reset

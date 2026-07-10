@@ -1,0 +1,40 @@
+using "./cortex-r8.repl"
+
+cpu1: CPU.ARMv7R @ sysbus
+    cpuType: "cortex-r8"
+    genericInterruptController: gic
+    numberOfMPURegions: 24
+    cpuId: 1
+    signalsUnit: signalsUnit
+
+cpu2: CPU.ARMv7R @ sysbus
+    cpuType: "cortex-r8"
+    genericInterruptController: gic
+    numberOfMPURegions: 24
+    cpuId: 2
+    signalsUnit: signalsUnit
+
+cpu3: CPU.ARMv7R @ sysbus
+    cpuType: "cortex-r8"
+    genericInterruptController: gic
+    numberOfMPURegions: 24
+    cpuId: 3
+    signalsUnit: signalsUnit
+
+privateTimer1: Timers.ARM_PrivateTimer @ {
+        sysbus new Bus.BusPointRegistration { address: 0xae000600; cpu: cpu1 }
+    }
+    -> gic#1@29
+    frequency: 667000000
+
+privateTimer2: Timers.ARM_PrivateTimer @ {
+        sysbus new Bus.BusPointRegistration { address: 0xae000600; cpu: cpu2 }
+    }
+    -> gic#2@29
+    frequency: 667000000
+
+privateTimer3: Timers.ARM_PrivateTimer @ {
+        sysbus new Bus.BusPointRegistration { address: 0xae000600; cpu: cpu3 }
+    }
+    -> gic#3@29
+    frequency: 667000000

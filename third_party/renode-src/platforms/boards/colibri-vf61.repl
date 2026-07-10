@@ -1,0 +1,9 @@
+using "platforms/cpus/vybrid.repl"
+
+usbHub: USBDeprecated.UsbHub @ usbEhci1 1
+    nrPorts: 8
+
+mouse: USBDeprecated.USBMouse @ usbHub 5
+
+fusion: Input.FusionF0710A @ i2c0 0x10
+    -> gpio0@30

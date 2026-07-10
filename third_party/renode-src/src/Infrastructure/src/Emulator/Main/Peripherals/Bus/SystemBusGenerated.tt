@@ -1,0 +1,281 @@
+﻿<#
+//
+// Copyright (c) 2010-2024 Antmicro
+// Copyright (c) 2011-2015 Realtime Embedded
+//
+// This file is licensed under the MIT License.
+// Full license text is available in 'licenses/MIT.txt'.
+//
+#>
+<#@ template language="C#v3.5" debug="True"#>
+<#@ import namespace="System.Collections.Generic" #>
+<#
+    Dictionary<string, string> types = new Dictionary<string, string>();
+    types.Add("byte", "Byte");
+    types.Add("ushort", "Word");
+    types.Add("uint", "DoubleWord");
+    types.Add("ulong", "QuadWord");
+#>
+/********************************************************
+*
+* Warning!
+* This file was generated automatically.
+* Please do not edit. Changes should be made in the
+* appropriate *.tt file.
+*
+*/
+
+using System;
+
+using Antmicro.Renode.Core;
+using Antmicro.Renode.Exceptions;
+using Antmicro.Renode.Logging;
+using Antmicro.Renode.Peripherals.Bus.Wrappers;
+using Antmicro.Renode.Peripherals.CPU;
+
+using Range = Antmicro.Renode.Core.Range;
+
+namespace Antmicro.Renode.Peripherals.Bus
+{
+    public partial class SystemBus
+    {
+<#
+    foreach(var entry in types)
+    {
+        var type = entry.Key;
+        var name = entry.Value;
+#>
+        public <#= type #> Read<#= name #>(ulong address, IPeripheral context = null, ulong? cpuState = null)
+        {
+            var accessWidth = SysbusAccessWidth.<#=name#>;
+            if(context is BaseCPU cpu && cpu.CheckExternalPermissions(address) == 0)
+            {
+                this.WarningLog(
+                    "Tried to read {0} bytes at 0x{1:X}, with incorrect permissions, returning 0.",
+                    (uint)accessWidth,
+                    address
+                );
+                return 0;
+            }
+
+            if(IsAddressRangeLocked(address.By((ulong)accessWidth), context))
+            {
+                this.Log(LogLevel.Warning, "Tried to read {0} bytes at 0x{1:X} which is inside a locked address range, returning 0",
+                    (uint)accessWidth, address);
+                return 0;
+            }
+
+            using(SetLocalContext(context, cpuState))
+            {
+                TryGetTag(address, out var tag);
+                var warning = TagOverriddenRead;
+                if(tag is TagEntry foundTag && foundTag.OverridePeripheralAccesses)
+                {
+                    warning = EnterTag(warning, foundTag);
+                    warning = DecorateWithCPUNameAndPC(warning);
+                    this.Log(LogLevel.Warning, warning.TrimEnd('.') + ", returning 0x{2}.", address, accessWidth, foundTag.DefaultValue.ToString("X16").Substring(16 - (int)accessWidth * 2));
+                    return (<#= type #>)foundTag.DefaultValue;
+                }
+
+                if(!TryFindPeripheralAccessMethods(address, context, out var accessMethods, out var startAddress, out var offset, cpuState))
+                {
+                    return (<#= type #>)ReportNonExistingRead(address, tag, accessWidth);
+                }
+                if(!IsPeripheralEnabled(accessMethods.Peripheral))
+                {
+                    this.Log(LogLevel.Warning, "Tried to read a locked peripheral: {0}. Address 0x{1:X}.", accessMethods.Peripheral.GetName(), address);
+                    return 0;
+                }
+                var lockTaken = false;
+                try
+                {
+                    if(!accessMethods.Lock.IsHeldByCurrentThread)
+                    {
+                        accessMethods.Lock.Enter(ref lockTaken);
+                    }
+                    if(accessMethods.SetAbsoluteAddress != null)
+                    {
+                        accessMethods.SetAbsoluteAddress(address);
+                    }
+                    return accessMethods.Read<#=name#>(checked((long)((address - startAddress) + offset)));
+                }
+                finally
+                {
+                    if(lockTaken)
+                    {
+                        accessMethods.Lock.Exit();
+                    }
+                }
+            }
+        }
+
+        public <#= type #> Read<#= name #>WithState(ulong address, IPeripheral context, IContextState stateObj)
+        {
+            var accessWidth = SysbusAccessWidth.<#=name#>;
+            if(!TryConvertStateToUlongForContext(context, stateObj, out ulong? state))
+            {
+                this.Log(LogLevel.Warning, "Tried to read {0} bytes at 0x{1:X} but failed on context state conversion, returning 0",
+                    (uint)accessWidth, address);
+                return 0;
+            }
+            return Read<#=name#>(address, context, state);
+        }
+
+        public void Write<#=name#>(ulong address, <#=type#> value, IPeripheral context = null, ulong? cpuState = null)
+        {
+            var accessWidth = SysbusAccessWidth.<#=name#>;
+            if(context is BaseCPU cpu && cpu.CheckExternalPermissions(address) == 0)
+            {
+                this.WarningLog(
+                    "Tried to write {0} bytes at 0x{1:X}, with incorrect permissions, write ignored.",
+                    (uint)accessWidth,
+                    address
+                );
+                return;
+            }
+
+            if(IsAddressRangeLocked(address.By((ulong)accessWidth), context))
+            {
+                this.Log(LogLevel.Warning, "Tried to write {0} bytes (0x{1:X}) at 0x{2:X} which is inside a locked address range, write ignored",
+                    (uint)accessWidth, value, address);
+                return;
+            }
+
+            using(SetLocalContext(context, cpuState))
+            {
+                TryGetTag(address, out var tag);
+                var warning = TagOverriddenWrite;
+                if(tag is TagEntry foundTag && foundTag.OverridePeripheralAccesses)
+                {
+                    warning = EnterTag(warning, foundTag);
+                    warning = DecorateWithCPUNameAndPC(warning);
+                    this.Log(LogLevel.Warning, warning, address, foundTag.DefaultValue.ToString("X16").Substring(16 - (int)accessWidth * 2), accessWidth);
+                    return;
+                }
+
+                if(!TryFindPeripheralAccessMethods(address, context, out var accessMethods, out var startAddress, out var offset, cpuState))
+                {
+                    ReportNonExistingWrite(address, value, tag, accessWidth);
+                    return;
+                }
+                if(!IsPeripheralEnabled(accessMethods.Peripheral))
+                {
+                    this.Log(LogLevel.Warning, "Tried to write a locked peripheral: {0}. Address 0x{1:X}, value 0x{2:X}", accessMethods.Peripheral.GetName(), address, value);
+                    return;
+                }
+
+                var lockTaken = false;
+                try
+                {
+                    if(!accessMethods.Lock.IsHeldByCurrentThread)
+                    {
+                        accessMethods.Lock.Enter(ref lockTaken);
+                    }
+                    if(accessMethods.SetAbsoluteAddress != null)
+                    {
+                        accessMethods.SetAbsoluteAddress(address);
+                    }
+                    var invalidationCtx = delayedInvalidation ? context as IHasDelayedInvalidationContext : null;
+                    using(var ctx = invalidationCtx?.EnterDelayedInvalidationContext())
+                    {
+                        accessMethods.Write<#=name#>(checked((long)((address - startAddress) + offset)), value);
+                    }
+                }
+                finally
+                {
+                    if(lockTaken)
+                    {
+                        accessMethods.Lock.Exit();
+                    }
+                }
+            }
+        }
+
+        public void Write<#=name#>WithState(ulong address, <#=type#> value, IPeripheral context, IContextState stateObj)
+        {
+            var accessWidth = SysbusAccessWidth.<#=name#>;
+            if(!TryConvertStateToUlongForContext(context, stateObj, out ulong? state))
+            {
+                this.Log(LogLevel.Warning, "Tried to write {0} bytes (0x{1:X}) at 0x{2:X} but failed on context state conversion, write ignored",
+                    (uint)accessWidth, value, address);
+                return;
+            }
+            Write<#=name#>(address, value, context, state);
+        }
+
+<# }
+#>
+<#
+    foreach(var operation in new [] { "Read", "Write" })
+    {
+        var when = operation == "Read" ? "After" : "Before";
+        var actionOrFunc = operation == "Read" ? "Func" : "Action";
+#>
+        public void ClearHook<#=when#>Peripheral<#=operation#><T>(IBusPeripheral peripheral)
+        {
+            SetHook<#=when#>Peripheral<#=operation#><T>(peripheral, null);
+        }
+
+        public void SetHook<#=when#>Peripheral<#=operation#><T>(IBusPeripheral peripheral, Func<T, long, T> hook, Range? subrange = null)
+        {
+            if(!Machine.IsRegistered(peripheral))
+            {
+                throw new RecoverableException(string.Format("Cannot set hook on peripheral {0}, it is not registered.", peripheral));
+            }
+            var type = typeof(T);
+<#
+        foreach(var entry in types)
+        {
+            var type = entry.Key;
+            var name = entry.Value;
+#>
+            if(type == typeof(<#=type#>))
+            {
+                foreach(var peripherals in AllPeripherals)
+                {
+                    peripherals.VisitAccessMethods(peripheral, pam =>
+                    {
+                        if(pam.<#=operation#><#=name#>.Target is <#=operation#>HookWrapper<<#=type#>>)
+                        {
+                            pam.<#=operation#><#=name#> = new BusAccess.<#=name#><#=operation#>Method(((<#=operation#>HookWrapper<<#=type#>>)pam.<#=operation#><#=name#>.Target).OriginalMethod);
+                        }
+                        if(hook != null)
+                        {
+                            pam.<#=operation#><#=name#> = new BusAccess.<#=name#><#=operation#>Method(new <#=operation#>HookWrapper<<#=type#>>(peripheral, new <#=actionOrFunc#><long, <#=type#>>(pam.<#=operation#><#=name#>), (Func<<#=type#>, long, <#=type#>>)(object)hook, subrange).<#=operation#>);
+                        }
+                        return pam;
+                    });
+                }
+                return;
+            }
+<#
+        }
+#>
+        }
+
+<#
+    }
+#>
+        private bool TryFindPeripheralAccessMethods(ulong address, IPeripheral context, out PeripheralAccessMethods accessMethods, out ulong startAddress, out ulong offset, ulong? cpuState = null)
+        {
+            if(context == null)
+            {
+                TryGetCurrentCPU(out var cpu);
+                context = cpu;
+            }
+            if(context != null)
+            {
+                if(peripheralsCollectionByContext.TryGetValue(context, cpuState, out var collection))
+                {
+                    accessMethods = collection.FindAccessMethods(address, out startAddress, out var _, out offset);
+                    if(accessMethods != null)
+                    {
+                        return true;
+                    }
+                }
+            }
+            accessMethods = peripheralsCollectionByContext[null].FindAccessMethods(address, out startAddress, out _, out offset);
+            return accessMethods != null;
+        }
+    }
+}

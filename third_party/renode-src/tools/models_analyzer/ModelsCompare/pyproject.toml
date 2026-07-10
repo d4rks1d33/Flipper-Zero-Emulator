@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=58.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "RenodeModelsCompare"
+description = "RenodeModelsCompare"
+version = "0.0.1"
+requires-python = ">=3.9"
+dependencies = [
+    "prettytable == 3.7.0",
+    "xmltodict == 0.13.0",
+    "rapidfuzz == 3.0.0",
+    "numpy == 1.24.3",
+    "scikit-criteria == 0.8.3",
+    "bidict == 0.22.1"
+]
+
+[project.optional-dependencies]
+validate = [
+    "systemrdl-compiler<2,>=1.27.1",
+    "click==8.1.*",
+]
+
+[project.scripts]
+renode-models-compare = "RenodeModelsCompare.__main__:main"
+
+[tool.setuptools.packages.find]
+exclude = ["Tests", "tests", "build"]

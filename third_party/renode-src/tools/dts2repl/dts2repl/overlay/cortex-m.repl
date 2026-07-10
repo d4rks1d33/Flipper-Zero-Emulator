@@ -1,0 +1,2 @@
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 72000000

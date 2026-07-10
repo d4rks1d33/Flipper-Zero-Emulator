@@ -3,11 +3,19 @@
 
 // ─── Memory ────────────────────────────────────────────────────────────────
 
+// Internal flash. `persistenceFile` makes it NON-VOLATILE, disk-backed memory
+// (a Renode MappedMemory extension in this project's Renode build): the 1 MB
+// image is loaded from flash.img at startup and written back on machine dispose,
+// exactly like the real STM32WB55 NVM. This is what lets a firmware flashed by
+// the OTA updater survive a full power cycle (a fresh `./run.sh` process) and
+// boot on its own -- no host-side "reload the stock .bin" hack. setup.sh seeds
+// flash.img from the bundled stock build the first time.
 flash: Memory.MappedMemory @ {
         sysbus 0x08000000;
         sysbus 0x00000000
     }
     size: 0x100000  // 1 MB (aliased at both 0x0 and 0x08000000)
+    persistenceFile: "@PROJECT_DIR@/firmware/flash.img"
 
 sram1: Memory.MappedMemory @ sysbus 0x20000000
     size: 0x30000   // 192 KB (SRAM1)
@@ -47,9 +55,16 @@ nvic: IRQControllers.NVIC @ sysbus 0xE000E000
     IRQ -> cpu@0
 
 // ─── DWT (Data Watchpoint and Trace - cycle counter) ───────────────────────
+// Custom fast-advancing CYCCNT so the firmware's DWT busy-wait delays
+// (furi_hal_cortex_delay_us / cortex timers) complete in a few loop iterations
+// instead of spinning for up to 4 virtual seconds (256M cycles). See the file
+// header for the rationale. This keeps UART/IO virtual-time timing intact
+// (unlike a global PerformanceInMips/AdvanceImmediately change).
 
-dwt: Miscellaneous.DWT @ sysbus 0xE0001000
-    frequency: 64000000
+dwt: Python.PythonPeripheral @ sysbus 0xE0001000
+    size: 0x1000
+    initable: true
+    filename: "@PROJECT_DIR@/peripherals/dwt_fast.py"
 
 // ─── RCC (Reset and Clock Control) ─────────────────────────────────────────
 // Custom Python peripheral that returns "ready" for all clock sources
@@ -86,10 +101,14 @@ nvicInput40: Miscellaneous.CombinedInput @ none
 
 // ─── IPCC (Inter-Processor Communication Controller) ───────────────────────
 
-ipcc: Python.PythonPeripheral @ sysbus 0x58000C00
-    size: 0x400
-    initable: true
-    filename: "@PROJECT_DIR@/peripherals/ipcc_stub.py"
+// IPCC: C# model. Besides the instant-Core2-ack behavior of the old Python stub
+// (C1TOC2SR reads 0), it fakes the CPU2 "wireless stack ready" handshake so the
+// OTA updater's radio-stack stage validates against an already-installed stack
+// of a chosen version (see peripherals/IPCC_WB55.cs). Its C# type is compiled by
+// the launch scripts (i @peripherals/IPCC_WB55.cs) before this platform loads.
+// IRQ is IPCC_C1_RX_IRQn = 44 on the STM32WB55.
+ipcc: Miscellaneous.IPCC_WB55 @ sysbus 0x58000C00
+    IRQ -> nvic@44
 
 // ─── RNG ───────────────────────────────────────────────────────────────────
 
@@ -115,6 +134,11 @@ flashController: Python.PythonPeripheral @ sysbus 0x58004000
 // ─── GPIO Ports ────────────────────────────────────────────────────────────
 // AHB2 / IOPORT base = 0x48000000
 
+// EXTI line-source multiplexing: each port connects on a DISTINCT input range
+// of the EXTI so the model knows WHICH port drove an edge (input = port*16+pin).
+// SYSCFG_EXTICR then selects which port actually owns each line. Port index:
+// PA=0 -> inputs 0..15, PB=1 -> 16..31, PC=2 -> 32..47, PD=3 -> 48..63,
+// PE=4 -> 64..79, PH=7 -> 112..127.
 gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x48000000, +0x400>
     modeResetValue: 0xABFFFFFF
     outputSpeedResetValue: 0x0C000000
@@ -124,31 +148,33 @@ gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x48000000, +0x400>
 
 gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x48000400, +0x400>
     numberOfAFs: 16
-    [0-15] -> exti@[0-15]
+    [0-15] -> exti@[16-31]
 
 gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x48000800, +0x400>
     numberOfAFs: 16
-    [0-15] -> exti@[0-15]
+    [0-15] -> exti@[32-47]
 
 gpioPortD: GPIOPort.STM32_GPIOPort @ sysbus <0x48000C00, +0x400>
     numberOfAFs: 16
-    [0-15] -> exti@[0-15]
+    [0-15] -> exti@[48-63]
 
 gpioPortE: GPIOPort.STM32_GPIOPort @ sysbus <0x48001000, +0x400>
     numberOfAFs: 16
-    [0-15] -> exti@[0-15]
+    [0-15] -> exti@[64-79]
 
 gpioPortH: GPIOPort.STM32_GPIOPort @ sysbus <0x48001C00, +0x400>
     modeResetValue: 0x000000C0
     numberOfAFs: 16
-    [0-15] -> exti@[0-15]
+    [0-15] -> exti@[112-127]
 
 // ─── SYSCFG ────────────────────────────────────────────────────────────────
 
-syscfg: Python.PythonPeripheral @ sysbus 0x40010000
-    size: 0x400
-    initable: true
-    filename: "@PROJECT_DIR@/peripherals/syscfg_wb55.py"
+// SYSCFG: C# model that also decodes SYSCFG_EXTICR and programs the EXTI
+// line-source mux (so only the EXTICR-selected port drives each EXTI line).
+syscfg: Miscellaneous.SYSCFG_WB55 @ sysbus 0x40010000
+    exti: exti
+    flash: flash
+    sram1: sram1
 
 // ─── SPI1 (APB2 - SubGHz CC1101, NFC ST25R3916) ───────────────────────────
 
@@ -156,9 +182,28 @@ spi1: SPI.STM32SPI @ sysbus 0x40013000
     IRQ -> nvic@34
 
 // ─── SPI2 (APB1 - Display ST7567, SD Card) ────────────────────────────────
+// SPI2 DMA request lines wired to DMA2: RX -> channel 6, TX -> channel 7
+// (matching furi_hal_spi's SPI_DMA_RX_CHANNEL=6 / TX=7 and the DMAMUX
+// SPI2_RX/SPI2_TX routing). STM32G0DMA inputs are 1-based, so input 6 == Ch6,
+// input 7 == Ch7. The connector name is the (historically misspelled)
+// "DMARecieve". The SD-card block reads use furi_hal_spi_bus_trx_dma which
+// enables RX (Ch6) before TX (Ch7); the TX block-copy to SPI2->DR clocks bytes
+// through the SD model and blinks DMARecieve once per byte so Ch6 reaches TC6.
 
 spi2: SPI.STM32SPI @ sysbus 0x40003800
     IRQ -> nvic@35
+    DMARecieve -> dma2@6
+    // bufferCapacity=1: Renode v1.16.1's STM32SPI RX buffer is a fixed 4-deep
+    // ring that silently overwrites, and it does NOT implement FRLVL (SR[10:9]
+    // read as 0). After a TX-only DMA block write (SD block writes push 512 bytes
+    // through DR), the firmware's furi_hal_spi_bus_end_txrx drains the RX FIFO by
+    // polling FRLVL -- which is a no-op here -- leaving up to 4 stale 0xFF bytes.
+    // The next polled read (the SD data-response) then returns a stale 0xFF
+    // instead of the card's 0x05, so the write looks failed and the driver
+    // re-inits the card in a loop (FR_DISK_ERR). With capacity 1 the RX ring
+    // holds only the most recent response, so a polled read after a write/DMA
+    // returns the matching fresh byte and the SD data-response is read correctly.
+    bufferCapacity: 1
 
 // ─── USART1 (APB2 - debug/log console at 230400) ──────────────────────────
 
@@ -213,7 +258,13 @@ timer17: Timers.STM32_Timer @ sysbus 0x40014800
 
 lptim1: Timers.STM32L0_LpTimer @ sysbus 0x40007C00
     frequency: 32768
-    -> nvic@47
+    // FIX C: LPTIM1 IRQ deliberately NOT connected to the NVIC. The stock
+    // firmware registers NO ISR for LPTIM1 (it handles the flags inline after
+    // WFI wakes), so an LPTIM1 interrupt delivered to the NVIC dispatches to an
+    // empty handler slot -> furi_check crash. The timer stays mapped and keeps
+    // advancing its counter (so the firmware's sleep-duration math still works);
+    // we simply never route its IRQ line to the core. The WFI still wakes on any
+    // other pending work (SysTick, etc.).
 
 // ─── LPTIM2 ────────────────────────────────────────────────────────────────
 

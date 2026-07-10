@@ -1,0 +1,48 @@
+:name: VexRiscv platform with a verilated CFU
+:description: This script runs CFU-Playground software using a verilated Custom Function Unit.
+
+$name?="CFU"
+
+using sysbus
+mach create $name
+machine LoadPlatformDescription @platforms/cpus/verilated/litex_vexriscv_verilated_cfu.repl
+
+$cfuLinux?=@https://dl.antmicro.com/projects/renode/verilated-ibex--libVtop-s_527064-bf919fbb21bc3242cbc09f05a8a8cac4037daaff
+$bin?=@https://dl.antmicro.com/projects/renode/verilated-cfu-test-software.elf-s_10742536-04c41fb55c3011b440a3e6eb955756268f28c151
+
+showAnalyzer uart
+
+cpu.cfu0 SimulationFilePathLinux $cfuLinux
+
+# These CSR registers are mocked here to match the CPU used by the CFU-Playground project.
+cpu RegisterCustomCSR "BPM" 0xB04  User
+cpu RegisterCustomCSR "BPM" 0xB05  User
+cpu RegisterCustomCSR "BPM" 0xB06  User
+cpu RegisterCustomCSR "BPM" 0xB07  User
+cpu RegisterCustomCSR "BPM" 0xB08  User
+cpu RegisterCustomCSR "BPM" 0xB09  User
+cpu RegisterCustomCSR "BPM" 0xB0A  User
+cpu RegisterCustomCSR "BPM" 0xB0B  User
+cpu RegisterCustomCSR "BPM" 0xB0C  User
+cpu RegisterCustomCSR "BPM" 0xB0D  User
+cpu RegisterCustomCSR "BPM" 0xB0E  User
+cpu RegisterCustomCSR "BPM" 0xB0F  User
+cpu RegisterCustomCSR "BPM" 0xB10  User
+cpu RegisterCustomCSR "BPM" 0xB11  User
+cpu RegisterCustomCSR "BPM" 0xB12  User
+cpu RegisterCustomCSR "BPM" 0xB13  User
+cpu RegisterCustomCSR "BPM" 0xB14  User
+cpu RegisterCustomCSR "BPM" 0xB15  User
+
+macro reset
+"""
+    sysbus LoadELF $bin
+"""
+
+runMacro $reset
+
+echo "Software loaded. It is the `example_cfu` from CFU-Playground (https://github.com/google/CFU-Playground)."
+echo "You can test it by running `Functional CFU Test` (2) menu option."
+echo ""
+echo "To test a more advanced CFU you can use `cfu_mnv2` from https://github.com/antmicro/renode-verilator-integration/tree/master/samples/cfu_mnv2 with `mnv2_first` software from https://github.com/google/CFU-Playground/tree/main/proj/mnv2_first."
+echo "MobileNetv2 CFU will let you test models with `TfLM Models menu` (1) or `Project menu` (3)."

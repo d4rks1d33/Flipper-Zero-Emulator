@@ -1,0 +1,180 @@
+//
+// Copyright (c) 2010-2026 Antmicro
+// Copyright (c) 2011-2015 Realtime Embedded
+//
+// This file is licensed under the MIT License.
+// Full license text is available in 'licenses/MIT.txt'.
+//
+using System;
+
+using Antmicro.Migrant;
+using Antmicro.Renode.Backends.Display;
+using Antmicro.Renode.Core;
+using Antmicro.Renode.Exceptions;
+using Antmicro.Renode.UserInterface;
+using Antmicro.Renode.Utilities;
+
+namespace Antmicro.Renode.Peripherals.Video
+{
+    [Icon("lcd")]
+    public abstract class AutoRepaintingVideo : IVideo, IDisposable
+    {
+        public RawImageData TakeScreenshot()
+        {
+            if(buffer == null)
+            {
+                throw new RecoverableException("Frame buffer is empty.");
+            }
+
+            var converter = PixelManipulationTools.GetConverter(Format, Endianess, RawImageData.PixelFormat, ELFSharp.ELF.Endianess.BigEndian, Width, Height);
+            var outBuffer = new byte[RawImageData.PixelFormat.GetByteCount((ulong)(Width * Height))];
+            converter.Convert(buffer, ref outBuffer);
+
+            return new RawImageData(outBuffer, Width, Height);
+        }
+
+        public void Dispose()
+        {
+            repainter.Dispose();
+        }
+
+        public abstract void Reset();
+
+        public uint FramesPerVirtualSecond
+        {
+            get
+            {
+                return framesPerVirtualSecond;
+            }
+
+            set
+            {
+                repainter.Dispose();
+                repainter = machine.ObtainManagedThread(DoRepaint, value);
+                if(RepainterIsRunning)
+                {
+                    repainter.Start();
+                }
+
+                framesPerVirtualSecond = value;
+            }
+        }
+
+        public int Width { get; private set; }
+
+        public int Height { get; private set; }
+
+        public PixelFormat Format { get; private set; }
+
+        public ELFSharp.ELF.Endianess Endianess { get; protected set; }
+
+        public bool RepainterIsRunning { get; private set; }
+
+        [field: Transient]
+        public event Action<byte[]> FrameRendered;
+
+        protected AutoRepaintingVideo(IMachine machine)
+        {
+            innerLock = new object();
+            // we use synchronized thread since some deriving classes can generate interrupt on repainting
+            this.machine = machine;
+            repainter = machine.ObtainManagedThread(DoRepaint, FramesPerVirtualSecond);
+            Endianess = ELFSharp.ELF.Endianess.LittleEndian;
+        }
+
+        public event Action<int, int, PixelFormat, ELFSharp.ELF.Endianess> ConfigurationChanged
+        {
+            add
+            {
+                lock (innerLock)
+                {
+                    configurationChanged += value;
+                    value(Width, Height, Format, Endianess);
+                }
+            }
+
+            remove
+            {
+                configurationChanged -= value;
+            }
+        }
+
+        protected void DoRepaint()
+        {
+            if(buffer != null)
+            {
+                Repaint();
+                var fr = FrameRendered;
+                if(fr != null)
+                {
+                    lock(innerLock)
+                    {
+                        fr(buffer);
+                    }
+                }
+            }
+        }
+
+        protected void Reconfigure(int? width = null, int? height = null, PixelFormat? format = null, bool autoRepaint = true)
+        {
+            lock(innerLock)
+            {
+                var flag = false;
+                if(width != null && Width != width.Value)
+                {
+                    Width = width.Value;
+                    flag = true;
+                }
+
+                if(height != null && Height != height.Value)
+                {
+                    Height = height.Value;
+                    flag = true;
+                }
+
+                if(format != null && Format != format.Value)
+                {
+                    Format = format.Value;
+                    flag = true;
+                }
+
+                if(flag && Width > 0 && Height > 0)
+                {
+                    buffer = new byte[Format.GetByteCount((ulong)(Width * Height))];
+
+                    var cc = configurationChanged;
+                    if(cc != null)
+                    {
+                        cc(Width, Height, Format, Endianess);
+                    }
+                    if(autoRepaint)
+                    {
+                        RepainterIsRunning = true;
+                        repainter.Start();
+                    }
+                    else
+                    {
+                        RepainterIsRunning = false;
+                        repainter.Stop();
+                    }
+                }
+                else
+                {
+                    RepainterIsRunning = false;
+                    repainter.Stop();
+                }
+            }
+        }
+
+        protected abstract void Repaint();
+
+        protected byte[] buffer;
+        private uint framesPerVirtualSecond = 25;
+
+        private IManagedThread repainter;
+        [Transient]
+        private Action<int, int, PixelFormat, ELFSharp.ELF.Endianess> configurationChanged;
+        private readonly object innerLock;
+        private readonly IMachine machine;
+    }
+}

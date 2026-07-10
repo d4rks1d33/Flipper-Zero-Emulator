@@ -1,0 +1,205 @@
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 32000000
+    IRQ -> cpu@0
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m33"
+    nvic: nvic
+
+// Missing interrupt lines for SPIs
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+
+spi2: SPI.STM32SPI @ sysbus 0x40003800
+
+spi3: SPI.STM32SPI @ sysbus 0x40003C00
+
+// This model's registers are not compatible with the EXTI in this MCU,
+// it is currently here to support direct interrupts
+exti: IRQControllers.STM32F4_EXTI @ sysbus 0x4002F400
+    [0-15,17] -> nvic@[11-26,2]
+    numberOfOutputLines: 43
+    firstDirectLine: 17
+
+sram1: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x30000
+
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x80000
+
+// frequency to be verified
+usart1: UART.STM32F7_USART @ sysbus 0x40013800
+    frequency: 200000000
+    IRQ -> nvic@61
+
+usart2: UART.STM32F7_USART @ sysbus 0x40004400
+    frequency: 200000000
+    IRQ -> nvic@62
+
+usart3: UART.STM32F7_USART @ sysbus 0x40004800
+    frequency: 200000000
+    IRQ -> nvic@63
+
+uart4: UART.STM32F7_USART @ sysbus 0x40004C00
+    frequency: 200000000
+    IRQ -> nvic@64
+
+uart5: UART.STM32F7_USART @ sysbus 0x40005000
+    frequency: 200000000
+    IRQ -> nvic@65
+
+lpuart1: UART.STM32F7_USART @ sysbus 0x40008000
+    frequency: 200000000
+    IRQ -> nvic@66
+
+gpioPortA: GPIOPort.STM32_GPIOPort @ sysbus <0x42020000, +0x400>
+    modeResetValue: 0xABFFFFFF
+    outputSpeedResetValue: 0x0C000000
+    pullUpPullDownResetValue: 0x64000000
+    numberOfAFs: 16
+    invertedAFPins: [[5, 3], [7, 1, 3]]
+
+gpioPortB: GPIOPort.STM32_GPIOPort @ sysbus <0x42020400, +0x400>
+    modeResetValue: 0xFFFFFEBF
+    pullUpPullDownResetValue: 0x00000100
+    numberOfAFs: 16
+    invertedAFPins: [[0, 1, 3], [1, 1, 3], [13, 1], [14, 1, 3], [15, 1, 3]]
+
+gpioPortC: GPIOPort.STM32_GPIOPort @ sysbus <0x42020800, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+
+gpioPortD: GPIOPort.STM32_GPIOPort @ sysbus <0x42020C00, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+
+gpioPortE: GPIOPort.STM32_GPIOPort @ sysbus <0x42021000, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+    invertedAFPins: [[8, 1], [10, 1], [12, 1]]
+
+gpioPortF: GPIOPort.STM32_GPIOPort @ sysbus <0x42021400, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+
+gpioPortG: GPIOPort.STM32_GPIOPort @ sysbus <0x42021800, +0x400>
+    modeResetValue: 0xFFFFFFFF
+    numberOfAFs: 16
+
+gpioPortH: GPIOPort.STM32_GPIOPort @ sysbus <0x42021C00, +0x400>
+    modeResetValue: 0x0000000F
+    numberOfAFs: 16
+
+dma1: DMA.STM32LDMA @ sysbus 0x40020000
+    [0-7] -> nvic@[29-36]
+
+i2c1: I2C.STM32F4_I2C @ sysbus 0x40005400
+    EventInterrupt -> nvic@55
+    ErrorInterrupt -> nvic@56
+
+rtc: STM32L_RTC @ sysbus <0x40002800, +0x400>
+    -> exti@17
+
+timer1: Timers.STM32_Timer @ sysbus 0x40012c00
+    BreakInterrupt -> nvic@41
+    UpdateInterrupt -> nvic@42
+    [TriggerInterrupt, CommutationInterrupt] -> nvic@[43, 43]
+    CaptureCompareInterrupt -> nvic@44
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+// frequency to be verified
+timer2: Timers.STM32_Timer @ sysbus 0x40000000
+    -> nvic@45
+    frequency: 10000000
+    initialLimit: 0xFFFFFFFF
+
+timer3: Timers.STM32_Timer @ sysbus 0x40000400
+    -> nvic@46
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer4: Timers.STM32_Timer @ sysbus 0x40000800
+    -> nvic@47
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer5: Timers.STM32_Timer @ sysbus 0x40000C00
+    -> nvic@48
+    frequency: 10000000
+    initialLimit: 0xFFFFFFFF
+
+timer6: Timers.STM32_Timer @ sysbus 0x40001000
+    -> nvic@49
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer7: Timers.STM32_Timer @ sysbus 0x40001400
+    -> nvic@50
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer8: Timers.STM32_Timer @ sysbus 0x40013400
+    BreakInterrupt -> nvic@51
+    UpdateInterrupt -> nvic@52
+    [TriggerInterrupt, CommutationInterrupt] -> nvic@[53, 53]
+    CaptureCompareInterrupt -> nvic@54
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer15: Timers.STM32_Timer @ sysbus 0x40014000
+    -> nvic@69
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer16: Timers.STM32_Timer @ sysbus 0x40014400
+    -> nvic@70
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+timer17: Timers.STM32_Timer @ sysbus 0x40014800
+    -> nvic@71
+    frequency: 10000000
+    initialLimit: 0xFFFF
+
+// Alternate function mapping connections. For more details see `stm32l071.repl`.
+timer1:
+    0 -> gpioPortA#07@01 | gpioPortA#08@01 | gpioPortB#13@01 | gpioPortE#08@01 | gpioPortE#09@01
+    1 -> gpioPortA#09@01 | gpioPortB#00@01 | gpioPortB#14@01 | gpioPortE#10@01 | gpioPortE#11@01
+    2 -> gpioPortA#10@01 | gpioPortB#01@01 | gpioPortB#15@01 | gpioPortE#12@01 | gpioPortE#13@01
+    3 -> gpioPortA#11@01 | gpioPortE#14@01
+
+timer2:
+    0 -> gpioPortA#00@01 | gpioPortA#05@01 | gpioPortA#15@01
+    1 -> gpioPortA#01@01 | gpioPortB#03@01
+    2 -> gpioPortA#02@01 | gpioPortB#10@01
+    3 -> gpioPortA#03@01 | gpioPortB#11@01
+
+timer3:
+    0 -> gpioPortA#06@02 | gpioPortB#04@02 | gpioPortC#06@02 | gpioPortE#03@02
+    1 -> gpioPortA#07@02 | gpioPortB#05@02 | gpioPortC#07@02 | gpioPortE#04@02
+    2 -> gpioPortB#00@02 | gpioPortC#08@02 | gpioPortE#05@02
+    3 -> gpioPortB#01@02 | gpioPortC#09@02 | gpioPortE#06@02
+
+timer4:
+    0 -> gpioPortB#06@02 | gpioPortB#12@02
+    1 -> gpioPortB#07@02 | gpioPortB#13@02
+    2 -> gpioPortB#08@02 | gpioPortB#14@02
+    3 -> gpioPortB#09@02 | gpioPortB#15@02
+
+timer5:
+    0 -> gpioPortB#00@02 | gpioPortF#06@02
+    1 -> gpioPortB#01@02 | gpioPortF#07@02
+    2 -> gpioPortB#02@02 | gpioPortF#08@02
+    3 -> gpioPortB#03@02 | gpioPortF#09@02
+
+sysbus:
+    init:
+        // Hard set all oscillator RDY bits
+        Tag <0x40021000 4> "RCC_CR" 0x2A020402
+
+        // Hard set HSI16 oscillator as system clock
+        Tag <0x40021008 4> "RCC_CFGR" 0x4
+
+        Tag <0x40007000 0x400> "PWR"
+        Tag <0xE0001000 0xffb> "DWT"

@@ -1,0 +1,11 @@
+plic:
+    numberOfContexts: 1
+    prioritiesEnabled: false
+
+timer0: Timers.MiV_CoreTimer @ sysbus 0x70003000
+    -> plic@30
+    clockFrequency: 66000000
+
+timer1: Timers.MiV_CoreTimer @ sysbus 0x70004000
+    -> plic@31
+    clockFrequency: 66000000

@@ -1,0 +1,296 @@
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    nvic: nvic
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    -> cpu@0
+
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 72000000
+
+rom: Memory.MappedMemory @ sysbus 0x00000000
+    size: 0x10000
+
+code_ram: Memory.MappedMemory @ {
+        sysbus 0x10058000;
+        sysbus 0x20058000
+    }
+    size: 0x68000
+
+data_ram: Memory.MappedMemory @ {
+        sysbus 0x200C0000;
+        sysbus 0x100C0000
+    }
+    size: 0x17800
+
+battery_backed_ram: Memory.MappedMemory @ sysbus 0x400AF000
+    // Size should be 0x40
+    size: 0x400
+
+internal_flash: Memory.MappedMemory @ sysbus 0x64000000
+    size: 0x100000
+
+nvicIrq33: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@33
+
+nvicIrq32: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@32
+
+nvicIrq38: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@38
+
+nvicIrq39: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 2
+    -> nvic@39
+
+cr_uart1: UART.NPCX_UART @ sysbus 0x400E0000
+    IRQ -> nvicIrq33@0
+    DMAReceive -> mdma1@0
+
+cr_uart2: UART.NPCX_UART @ sysbus 0x400E2000
+    IRQ -> nvicIrq32@0
+    DMAReceive -> mdma2@0
+
+cr_uart3: UART.NPCX_UART @ sysbus 0x400E4000
+    IRQ -> nvicIrq38@0
+    DMAReceive -> mdma3@0
+
+cr_uart4: UART.NPCX_UART @ sysbus 0x400E6000
+    IRQ -> nvicIrq39@0
+    DMAReceive -> mdma4@0
+
+itim32_1: Timers.NPCX_ITIM @ sysbus 0x400B0000
+    -> nvic@28
+
+itim32_2: Timers.NPCX_ITIM @ sysbus 0x400B2000
+    -> nvic@27
+
+itim32_3: Timers.NPCX_ITIM @ sysbus 0x400B4000
+    -> nvic@17
+
+itim32_4: Timers.NPCX_ITIM @ sysbus 0x400B6000
+    -> nvic@43
+
+itim32_5: Timers.NPCX_ITIM @ sysbus 0x400B8000
+    -> nvic@44
+
+itim32_6: Timers.NPCX_ITIM @ sysbus 0x400BA000
+    -> nvic@45
+
+itim64: Timers.NPCX_ITIM @ sysbus 0x400BE000
+    is64Bit: true
+    -> nvic@58
+
+image_type: Memory.ArrayMemory @ sysbus 0x4000C009
+    size: 0x1
+
+twd: Timers.NPCX_TWD @ sysbus 0x400D8000
+    -> nvic@31
+
+mtc: Timers.NPCX_MTC @ sysbus 0x400B7000
+    -> nvic@5
+
+mdma1: DMA.NPCX_MDMA @ sysbus 0x40011100
+    sourceAddress: 0x400E0002
+    destinationAddress: 0x400E0000
+    -> nvicIrq33@1
+
+mdma2: DMA.NPCX_MDMA @ sysbus 0x40011200
+    sourceAddress: 0x400E2002
+    destinationAddress: 0x400E2000
+    -> nvicIrq32@1
+
+mdma3: DMA.NPCX_MDMA @ sysbus 0x40011300
+    sourceAddress: 0x400E4002
+    destinationAddress: 0x400E4000
+    -> nvicIrq38@1
+
+mdma4: DMA.NPCX_MDMA @ sysbus 0x40011400
+    sourceAddress: 0x400E6002
+    destinationAddress: 0x400E6000
+    -> nvicIrq39@1
+
+mdma5: DMA.NPCX_MDMA @ sysbus 0x40011500
+    // For MDMA5 the source and destination addresses can be different
+    // based on the state of `I3C_MS` flag in the `DEV_CTL3` register
+    // of the System Configuration peripheral.
+    // This is currently not implemented.
+    sourceAddress: 0x400E00C0
+    destinationAddress: 0x400E00B0
+
+spip: SPI.NPCX_SPIP @ sysbus 0x400D2000
+
+lfcg: Miscellaneous.NPCX_LFCG @ sysbus 0x400B5100
+
+hfcg: Miscellaneous.NPCX_HFCG @ sysbus 0x400B5000
+
+fiu: SPI.NPCX_FIU @ sysbus 0x40020000
+
+internal_flash_controller: SPI.NPCX_Flash @ fiu
+    memory: internal_flash
+
+gpio0: GPIOPort.NPCX_GPIO @ sysbus 0x40081000
+
+gpio1: GPIOPort.NPCX_GPIO @ sysbus 0x40083000
+
+gpio2: GPIOPort.NPCX_GPIO @ sysbus 0x40085000
+
+gpio3: GPIOPort.NPCX_GPIO @ sysbus 0x40087000
+
+gpio4: GPIOPort.NPCX_GPIO @ sysbus 0x40089000
+
+gpio5: GPIOPort.NPCX_GPIO @ sysbus 0x4008B000
+
+gpio6: GPIOPort.NPCX_GPIO @ sysbus 0x4008D000
+
+gpio7: GPIOPort.NPCX_GPIO @ sysbus 0x4008F000
+
+gpio8: GPIOPort.NPCX_GPIO @ sysbus 0x40091000
+
+gpio9: GPIOPort.NPCX_GPIO @ sysbus 0x40093000
+
+gpioa: GPIOPort.NPCX_GPIO @ sysbus 0x40095000
+
+gpiob: GPIOPort.NPCX_GPIO @ sysbus 0x40097000
+
+gpioc: GPIOPort.NPCX_GPIO @ sysbus 0x40099000
+
+gpiod: GPIOPort.NPCX_GPIO @ sysbus 0x4009B000
+
+gpioe: GPIOPort.NPCX_GPIO @ sysbus 0x4009D000
+
+gpiof: GPIOPort.NPCX_GPIO @ sysbus 0x4009F000
+
+smbus0: I2C.NPCX_SMBus @ sysbus 0x40009000
+    IRQ -> nvic@13
+
+smbus1: I2C.NPCX_SMBus @ sysbus 0x4000B000
+    IRQ -> nvic@14
+
+smbus2: I2C.NPCX_SMBus @ sysbus 0x400C0000
+    IRQ -> nvic@36
+
+smbus3: I2C.NPCX_SMBus @ sysbus 0x400C2000
+    IRQ -> nvic@37
+
+smbus4: I2C.NPCX_SMBus @ sysbus 0x40008000
+    IRQ -> nvic@19
+
+smbus5: I2C.NPCX_SMBus @ sysbus 0x40017000
+    IRQ -> nvic@20
+
+smbus6: I2C.NPCX_SMBus @ sysbus 0x40018000
+    IRQ -> nvic@16
+
+smbus7: I2C.NPCX_SMBus @ sysbus 0x40019000
+    IRQ -> nvic@8
+
+// DEV_CTL4 register from the System Configuration peripheral
+// Its `Write-Protect Internal Flash` bit is used to force
+// write protection of the internal flash
+DEV_CTL4: Python.PythonPeripheral @ sysbus 0x400C3006
+    size: 0x1
+    initable: true
+    script: '''
+if request.IsInit:
+    value = 0xA
+    is_locked = False
+    WRITE_PROTECTION = (1 << 5)
+
+elif request.IsRead:
+    request.Value = value
+
+elif request.IsWrite:
+    if is_locked:
+        request.Value |= WRITE_PROTECTION
+    elif request.Value & WRITE_PROTECTION:
+        is_locked = True
+        # This signal (WP) is active-low
+        self.GetMachine()["sysbus.fiu.internal_flash_controller"].OnGPIO(0, False)
+        value = request.Value
+
+    value = request.Value
+'''
+
+// SWRST_CTL4 register from the System Configuration peripheral
+SWRST_CTL4: Python.PythonPeripheral @ sysbus 0x400C3110
+    size: 0x4
+    initable: true
+    script: '''
+if request.IsInit:
+    MDMA2_RESET = (1 << 25)
+elif request.IsWrite:
+    if request.Value & MDMA2_RESET:
+        self.GetMachine()["sysbus.mdma2"].Reset()
+'''
+
+// Mocking "Power Management Channel (PMCH) device registers", as RW memory
+pm1: Memory.ArrayMemory @ sysbus 0x400C9000
+    size: 0x100
+
+pm2: Memory.ArrayMemory @ sysbus 0x400CB000
+    size: 0x100
+
+pm3: Memory.ArrayMemory @ sysbus 0x400CD000
+    size: 0x100
+
+pm4: Memory.ArrayMemory @ sysbus 0x400CF000
+    size: 0x100
+
+sysbus:
+    init:
+        // Script contains implementation for select bootrom functions
+        // that on hardware would be present in board's read-only memory
+        Machine ExecutePythonFromFile @scripts/pydev/nuvoton_npcx9_bootrom.py
+
+        Tag <0x400C3000 0x400> "System Configuration"
+        Tag <0x400C3100 0x2>   "SWRST_TRG" 0xFFFF
+        Tag <0x400F8000 0x400> "FLM"
+        Tag <0x40011000 0x100> "GDMA"
+        Tag <0x400BB000 0x100> "MIWU0"
+        Tag <0x400BD000 0x100> "MIWU1"
+        Tag <0x400BF000 0x100> "MIWU2"
+        Tag <0x400A3000 0x100> "Keyboard scan"
+        Tag <0x400A5000 0x100> "System Glue Functions"
+        Tag <0x400B1000 0x100> "PS/2"
+        Tag <0x400E1000 0x100> "MTF16-1"
+        Tag <0x400E3000 0x100> "MTF16-2"
+        Tag <0x400E5000 0x100> "MTF16-3"
+        Tag <0x400D7000 0x100> "LTC"
+        Tag <0x40080000 0x100> "PWM0"
+        Tag <0x40082000 0x100> "PWM1"
+        Tag <0x40084000 0x100> "PWM2"
+        Tag <0x40086000 0x100> "PWM3"
+        Tag <0x40088000 0x100> "PWM4"
+        Tag <0x4008A000 0x100> "PWM5"
+        Tag <0x4008C000 0x100> "PWM6"
+        Tag <0x4008E000 0x100> "PWM7"
+        Tag <0x400D1000 0x100> "ADC"
+        Tag <0x40009000 0x100> "SMBUS0"
+        Tag <0x4000B000 0x100> "SMBUS1"
+        Tag <0x400C0000 0x100> "SMBUS2"
+        Tag <0x400C2000 0x100> "SMBUS3"
+        Tag <0x40008000 0x100> "SMBUS4"
+        Tag <0x40017000 0x100> "SMBUS5"
+        Tag <0x40018000 0x100> "SMBUS6"
+        Tag <0x40019000 0x100> "SMBUS7"
+        Tag <0x400D4000 0x100> "PECI"
+        Tag <0x4000F000 0x200> "SHI"
+        Tag <0x400AF100 0x100> "BBRM"
+        Tag <0x4000C000 0x100> "MDC"
+        Tag <0x40007000 0x100> "OTPI"
+        Tag <0x4000D000 0x100> "PMC"
+        Tag <0x400C3000 0x100> "Debugger Interface"
+        Tag <0x400C7000 0x100> "Keyboard and Mouse Interface"
+        Tag <0x400C9000 0x100> "PM1"
+        Tag <0x400CB000 0x100> "PM2"
+        Tag <0x400CD000 0x100> "PM3"
+        Tag <0x400CF000 0x100> "PM4"
+        Tag <0x4000E000 0x100> "Host Modules"
+        Tag <0x40010000 0x80> "SHM"
+        Tag <0x40010080 0x80> "eSHM"
+        Tag <0x400C1000 0x100> "MSWC"
+        Tag <0x4000A000 0x100> "eSPI_SIF"

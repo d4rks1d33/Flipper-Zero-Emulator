@@ -1,0 +1,15 @@
+<Project DefaultTargets="Build" Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Deterministic>false</Deterministic>
+    <AssemblyName>PacketDotNet</AssemblyName>
+    <RootNamespace>PacketDotNet</RootNamespace>
+    <LangVersion>7.2</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="log4net" Condition=" '$(Configuration)' == 'DEBUG' ">
+      <HintPath>Libraries\log4net.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

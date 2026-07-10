@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>1.0.3</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{959D076C-8127-4FEE-9737-0F8FDE5A0E09}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>BigGustave</RootNamespace>
+    <AssemblyName>BigGustave</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Adam7.cs" />
+    <Compile Include="Adler32Checksum.cs" />
+    <Compile Include="ChunkHeader.cs" />
+    <Compile Include="ColorType.cs" />
+    <Compile Include="CompressionMethod.cs" />
+    <Compile Include="Crc32.cs" />
+    <Compile Include="Decoder.cs" />
+    <Compile Include="FilterMethod.cs" />
+    <Compile Include="FilterType.cs" />
+    <Compile Include="HeaderValidationResult.cs" />
+    <Compile Include="IChunkVisitor.cs" />
+    <Compile Include="ImageHeader.cs" />
+    <Compile Include="InterlaceMethod.cs" />
+    <Compile Include="Palette.cs" />
+    <Compile Include="Pixel.cs" />
+    <Compile Include="PngBuilder.cs" />
+    <Compile Include="Png.cs" />
+    <Compile Include="PngOpener.cs" />
+    <Compile Include="PngOpenerSettings.cs" />
+    <Compile Include="PngStreamWriteHelper.cs" />
+    <Compile Include="RawPngData.cs" />
+    <Compile Include="StreamHelper.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+</Project>

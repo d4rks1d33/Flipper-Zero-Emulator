@@ -18,10 +18,16 @@ mach create "flipper"
 # The custom WB55 EXTI C# type must be compiled BEFORE the platform is loaded,
 # because the .repl references IRQControllers.STM32WB55_EXTI.
 i @peripherals/STM32WB55_EXTI.cs
+# SYSCFG_WB55 references STM32WB55_EXTI, so compile it after the EXTI type but
+# before the platform (which instantiates syscfg with an `exti:` reference).
+i @peripherals/SYSCFG_WB55.cs
+# IPCC_WB55 (Core2/BLE mailbox model) is instantiated by the platform too.
+i @peripherals/IPCC_WB55.cs
 
 machine LoadPlatformDescription @platform/stm32wb55_flipper.repl
 
 # ─── Custom C# peripherals (compiled on the fly) ─────────────────────────────
+i @peripherals/ITransactionResettable.cs
 i @peripherals/LP5562.cs
 i @peripherals/ST7567.cs
 i @peripherals/CC1101.cs
@@ -54,7 +60,12 @@ machine LoadPlatformDescriptionFromString "gpioPortB: { 1 -> spi2mux@2 }"
 
 # SPI1 shared bus: CC1101 (SubGHz, CS=PD0) + ST25R3916 (NFC, CS=PE4)
 # Router forwards bytes to the device whose CS is asserted.
-machine LoadPlatformDescriptionFromString "spi1radio: SPI.Spi1Router @ spi1"
+#   CS inputs:  PD0 -> spi1radio@0 (CC1101),  PE4 -> spi1radio@1 (NFC)
+#   GPIO outs:  spi1radio.0 -> PA1 (CC1101 GDO0), spi1radio.1 -> PA2 (NFC IRQ)
+# The GDO0 output lets the CC1101 power-on self test pass (subghz "Init OK");
+# the NFC IRQ output is wired for fidelity but the model keeps it quiescent so
+# the timeout-bounded NFC IRQ waits settle into low-power without hanging.
+machine LoadPlatformDescriptionFromString "spi1radio: SPI.Spi1Router @ spi1 { 0 -> gpioPortA@1; 1 -> gpioPortA@2 }"
 machine LoadPlatformDescriptionFromString "gpioPortD: { 0 -> spi1radio@0 }"
 machine LoadPlatformDescriptionFromString "gpioPortE: { 4 -> spi1radio@1 }"
 
@@ -79,11 +90,16 @@ macro ProvisionOtp
     sysbus WriteDoubleWord 0x1FFF7500 0x00000011
 """
 
-# ─── Firmware load ────────────────────────────────────────────────────────────
-# The .bin maps 1:1 to flash at 0x08000000.
-macro LoadFirmware
+# ─── Firmware / boot vector ──────────────────────────────────────────────────
+# The internal flash is now a NON-VOLATILE, disk-backed MappedMemory
+# (firmware/flash.img, see the platform .repl). Renode loads flash.img into
+# 0x08000000 automatically at construction, so we do NOT LoadBinary here: we boot
+# whatever currently lives in the flash image -- the stock build initially, or a
+# firmware the OTA updater flashed in a previous run. This mirrors real hardware:
+# the chip runs whatever is in its flash, and a `./run.sh firmware/foo.bin` seeds
+# flash.img host-side (run.sh) before launch, i.e. it "reflashes the chip".
+macro SetBootVector
 """
-    sysbus LoadBinary $firmware_bin 0x08000000
     cpu VectorTableOffset 0x08000000
 """
 
@@ -106,18 +122,23 @@ macro SetButtonsIdle
     gpioPortC OnGPIO 10 false
 """
 
-# ─── Reset macro: re-provision + reload on SYSRESETREQ ───────────────────────
+# ─── Reset macro: re-provision volatile host state on SYSRESETREQ ────────────
+# A firmware-triggered reset (NVIC SYSRESETREQ) resets the whole machine and
+# re-runs this macro. We only re-apply VOLATILE host-side state (OTP fuses,
+# button idle levels, boot vector). We must NOT touch the flash: it is
+# persistent and already holds the running firmware (real hardware keeps its
+# flash across a reset too).
 macro reset
 """
     runMacro $ProvisionOtp
-    runMacro $LoadFirmware
+    runMacro $SetBootVector
     runMacro $SetButtonsIdle
     start
 """
 
 # ─── Execute setup ────────────────────────────────────────────────────────────
 runMacro $ProvisionOtp
-runMacro $LoadFirmware
+runMacro $SetBootVector
 runMacro $SetButtonsIdle
 
 # ─── Logging ──────────────────────────────────────────────────────────────────

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>RenodeAnalyzers</AssemblyName>
+    <OutputType>library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- The dll will be duplicated in two locations. This is not ideal -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- To pack Utils.dll -->
+    <PackageReference Include="Teronis.MSBuild.Packaging.ProjectBuildInPackage" Version="1.0.0">
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis" Version="4.4.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">
+      <IncludeAssets>runtime; build; native; contentfiles; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.Csharp" Version="4.4.0" />
+    <PackageReference Include="NLog" Version="5.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pack analyzers as dotnet likes it: https://roslyn-analyzers.readthedocs.io/en/latest/create-nuget-package.html -->
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <!-- Trick Omnisharp into loading dependencies -->
+    <None Include="$(OutputPath)\Utils.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(OutputPath)\Nlog.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Utils/Utils.csproj" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

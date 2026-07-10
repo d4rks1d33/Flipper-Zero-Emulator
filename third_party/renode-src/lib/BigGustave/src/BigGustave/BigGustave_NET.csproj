@@ -1,0 +1,7 @@
+﻿<Project DefaultTargets="Build" Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <RootNamespace>BigGustave</RootNamespace>
+    <AssemblyName>BigGustave</AssemblyName>
+  </PropertyGroup>
+</Project>

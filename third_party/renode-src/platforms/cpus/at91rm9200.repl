@@ -1,0 +1,59 @@
+uart0: UART.Atmel91DebugUnit @ sysbus <0xFFFFF200, +0x200>
+    -> aic@1
+
+internalMemory: Memory.MappedMemory @ sysbus 0x0
+    size: 0x30000
+
+memory: Memory.MappedMemory @ {
+        sysbus 0x20000000;
+        sysbus 0xC0000000
+    }
+    size: 0x10000000
+
+aic: IRQControllers.AIC @ sysbus 0xFFFFF000
+    IRQ -> cpu@0
+    FIQ -> cpu@1
+
+
+systemTimer: Timers.Atmel91SystemTimer @ sysbus 0xFFFFFD00
+    -> aic@1
+
+cpu: CPU.ARMv7A @ sysbus
+    cpuType: "arm926"
+    init:
+        ModelID 0x41009200
+
+ckgrPllar: Python.PythonPeripheral @ sysbus 0xFFFFFC28
+    size: 0x4
+    initable: false
+    script: "request.Value = 0x01013F00"
+
+ckgrPllbr: Python.PythonPeripheral @ sysbus 0xFFFFFC2C
+    size: 0x4
+    initable: false
+    script: "request.Value = 0x01013F00"
+
+pmcMkcr: Python.PythonPeripheral @ sysbus 0xFFFFFC30
+    size: 0x4
+    initable: false
+    script: "request.Value = 0x2"
+
+sysbus:
+    init:
+        Tag <0xFFFFF400,0xFFFFF5FF> "PIOA"
+        Tag <0xFFFFF600,0xFFFFF7FF> "PIOB"
+        Tag <0xFFFFF800,0xFFFFF9FF> "PIOC"
+        Tag <0xFFFFFA00,0xFFFFFBFF> "PIOD"
+        Tag <0xFFFFFC00,0xFFFFFCFF> "PMC"
+        Tag <0xFFFFFE00,0xFFFFFEFF> "RTC"
+        Tag <0xFFFFFF00,0x0ffffffff> "MC"
+        Tag <0xFFFC0000,0xFFFC3FFF> "USART0"
+        Tag <0xFFFC4000,0xFFFC7FFF> "USART1"
+        Tag <0xFFFC8000,0xFFFCBFFF> "USART2"
+        Tag <0xFFFCC000,0xFFFCFFFF> "USART3"
+        Tag <0xFFFD4000,0xFFFD7FFF> "SSC0"
+        Tag <0xFFFD8000,0xFFFDBFFF> "SSC1"
+        Tag <0xFFFDC000,0xFFFDFFFF> "SSC2"
+        Tag <0xFFFE0000,0xFFFE3FFF> "SPI"
+        Tag <0xFFFA0000,0xFFFA3FFF> "TC012"
+

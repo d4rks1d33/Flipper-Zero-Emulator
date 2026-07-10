@@ -1,0 +1,5 @@
+emuVscaleEm: Python.PythonPeripheral @ sysbus 0x50004084
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/rolling-bit.py"
+

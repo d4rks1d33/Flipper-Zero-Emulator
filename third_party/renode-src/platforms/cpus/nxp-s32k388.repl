@@ -1,0 +1,613 @@
+cpu0: CPU.CortexM @ sysbus
+    cpuType: "cortex-m7"
+    nvic: nvic0
+    cpuId: 0
+    numberOfMPURegions: 16
+
+cpu1: CPU.CortexM @ sysbus
+    cpuType: "cortex-m7"
+    nvic: nvic1
+    cpuId: 1
+    numberOfMPURegions: 16
+    init:
+        IsHalted true
+
+cpu2: CPU.CortexM @ sysbus
+    cpuType: "cortex-m7"
+    nvic: nvic2
+    cpuId: 2
+    numberOfMPURegions: 16
+    init:
+        IsHalted true
+
+cpu3: CPU.CortexM @ sysbus
+    cpuType: "cortex-m7"
+    nvic: nvic3
+    cpuId: 3
+    numberOfMPURegions: 16
+    init:
+        IsHalted true
+
+nvic0: IRQControllers.NVIC @ sysbus new Bus.BusPointRegistration {
+        address: 0xE000E000;
+        cpu: cpu0
+    }
+    systickFrequency: 320000000
+    -> cpu0@0
+
+nvic1: IRQControllers.NVIC @ sysbus new Bus.BusPointRegistration {
+        address: 0xE000E000;
+        cpu: cpu1
+    }
+    systickFrequency: 320000000
+    -> cpu1@0
+
+nvic2: IRQControllers.NVIC @ sysbus new Bus.BusPointRegistration {
+        address: 0xE000E000;
+        cpu: cpu2
+    }
+    systickFrequency: 320000000
+    -> cpu2@0
+
+nvic3: IRQControllers.NVIC @ sysbus new Bus.BusPointRegistration {
+        address: 0xE000E000;
+        cpu: cpu3
+    }
+    systickFrequency: 320000000
+    -> cpu3@0
+
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 320000000
+
+itcm0: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x00000000;
+            cpu: cpu0
+        };
+        sysbus 0x11000000
+    }
+    size: 0x8000
+
+itcm1: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x00000000;
+            cpu: cpu1
+        };
+        sysbus 0x11400000
+    }
+    size: 0x8000
+
+itcm2: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x00000000;
+            cpu: cpu2
+        };
+        sysbus 0x11800000
+    }
+    size: 0x8000
+
+itcm3: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x00000000;
+            cpu: cpu3
+        };
+        sysbus 0x11C00000
+    }
+    size: 0x8000
+
+program_flash: Memory.MappedMemory @ sysbus 0x00400000
+    size: 0x800000
+
+data_flash: Memory.MappedMemory @ sysbus 0x10000000
+    size: 0x20000
+
+utest: Memory.MappedMemory @ sysbus 0x1B000000
+    size: 0x2000
+
+dtcm0: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x20000000;
+            cpu: cpu0
+        };
+        sysbus 0x21000000
+    }
+    size: 0x10000
+
+dtcm1: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x20000000;
+            cpu: cpu1
+        };
+        sysbus 0x21400000
+    }
+    size: 0x10000
+
+dtcm2: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x20000000;
+            cpu: cpu2
+        };
+        sysbus 0x21800000
+    }
+    size: 0x10000
+
+dtcm3: Memory.MappedMemory @ {
+        sysbus new Bus.BusPointRegistration {
+            address: 0x20000000;
+            cpu: cpu3
+        };
+        sysbus 0x21C00000
+    }
+    size: 0x10000
+
+sram: Memory.MappedMemory @ sysbus 0x20400000
+    size: 0xc0000
+
+quad_spi_flash: Memory.MappedMemory @ sysbus 0x68000000
+    size: 0x8000000
+
+mscm: Miscellaneous.S32K3XX_MiscellaneousSystemControlModule @ sysbus 0x40260000
+    nvics: [nvic0, nvic1, nvic2, nvic3]
+
+siul2: Miscellaneous.S32K3XX_SystemIntegrationUnitLite2 @ sysbus 0x40290000
+    IRQ1 -> mscm@53
+    IRQ2 -> mscm@54
+    IRQ3 -> mscm@55
+    IRQ4 -> mscm@56
+
+mc_me: Miscellaneous.S32KXX_ModeEntryModule @ sysbus 0x402DC000
+    cores: [cpu0, cpu1, empty, cpu3, cpu2]
+
+swt0: Timers.S32K3XX_SoftwareWatchdogTimer @ sysbus 0x40270000
+    -> mscm@42
+
+swt1: Timers.S32K3XX_SoftwareWatchdogTimer @ sysbus 0x4046C000
+    -> mscm@43
+
+swt2: Timers.S32K3XX_SoftwareWatchdogTimer @ sysbus 0x40470000
+    -> mscm@44
+
+swt3: Timers.S32K3XX_SoftwareWatchdogTimer @ sysbus 0x40070000
+    -> mscm@58
+
+stm0: Timers.S32K3XX_SystemTimerModule @ sysbus 0x40274000
+    clockFrequency: 48_000_000
+    -> mscm@39
+
+stm1: Timers.S32K3XX_SystemTimerModule @ sysbus 0x40474000
+    clockFrequency: 48_000_000
+    -> mscm@40
+
+stm2: Timers.S32K3XX_SystemTimerModule @ sysbus 0x40478000
+    clockFrequency: 48_000_000
+    -> mscm@41
+
+stm3: Timers.S32K3XX_SystemTimerModule @ sysbus 0x4047C000
+    clockFrequency: 48_000_000
+    -> mscm@57
+
+pit0: Timers.S32K3XX_PeriodicInterruptTimer @ sysbus 0x400B0000
+    oscillatorFrequency: 12_000_000
+    hasRealTimeInterrupt: true
+    hasLifetimeTimer: true
+    supportsTimersChaining: true
+    -> mscm@96
+
+pit1: Timers.S32K3XX_PeriodicInterruptTimer @ sysbus 0x400B4000
+    oscillatorFrequency: 12_000_000
+    -> mscm@97
+
+pit2: Timers.S32K3XX_PeriodicInterruptTimer @ sysbus 0x402FC000
+    oscillatorFrequency: 12_000_000
+    -> mscm@98
+
+pit3: Timers.S32K3XX_PeriodicInterruptTimer @ sysbus 0x40300000
+    oscillatorFrequency: 12_000_000
+    -> mscm@99
+
+rtc: Timers.S32K3XX_RealTimeClock @ sysbus 0x40288000
+    -> mscm@102
+
+lpi2c0: I2C.S32K3XX_LowPowerInterIntegratedCircuit @ sysbus 0x40350000
+    -> mscm@161
+
+lpi2c1: I2C.S32K3XX_LowPowerInterIntegratedCircuit @ sysbus 0x40354000
+    -> mscm@162
+
+lpspi0: SPI.IMXRT_LPSPI @ sysbus 0x40358000
+    -> mscm@165
+
+lpspi1: SPI.IMXRT_LPSPI @ sysbus 0x4035C000
+    -> mscm@166
+
+lpspi2: SPI.IMXRT_LPSPI @ sysbus 0x40360000
+    -> mscm@167
+
+lpspi3: SPI.IMXRT_LPSPI @ sysbus 0x40364000
+    -> mscm@168
+
+lpspi4: SPI.IMXRT_LPSPI @ sysbus 0x404BC000
+    -> mscm@169
+
+lpspi5: SPI.IMXRT_LPSPI @ sysbus 0x404C0000
+    -> mscm@170
+
+flex_io: Miscellaneous.S32K3XX_FlexIO @ sysbus 0x40324000
+    Frequency: 48000000
+    IRQ -> mscm@139
+    [Shifter0DMA, Shifter1DMA, Shifter2DMA, Shifter3DMA] -> dma_mux0@[33-36]
+    [Shifter4DMA, Shifter5DMA, Shifter6DMA, Shifter7DMA] -> dma_mux1@[34-37]
+
+lpuart0: UART.NXP_LPUART @ sysbus 0x40328000
+    frequency: 24000000
+    fifoSize: 16
+    IRQ -> mscm@141
+    [TransmitDMA, ReceiveDMA] -> dma_mux0@[37-38]
+
+lpuart1: UART.NXP_LPUART @ sysbus 0x4032C000
+    frequency: 24000000
+    fifoSize: 16
+    IRQ -> mscm@142
+    [TransmitDMA, ReceiveDMA] -> dma_mux0@[39-40]
+
+lpuart2: UART.NXP_LPUART @ sysbus 0x40330000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@143
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[38-39]
+
+lpuart3: UART.NXP_LPUART @ sysbus 0x40334000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@144
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[40-41]
+
+lpuart4: UART.NXP_LPUART @ sysbus 0x40338000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@145
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[42-43]
+
+lpuart5: UART.NXP_LPUART @ sysbus 0x4033C000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@146
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[44-45]
+
+lpuart6: UART.NXP_LPUART @ sysbus 0x40340000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@147
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[46-47]
+
+lpuart7: UART.NXP_LPUART @ sysbus 0x40344000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@148
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[48-49]
+
+lpuart8: UART.NXP_LPUART @ sysbus 0x4048C000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@149
+    [TransmitDMA, ReceiveDMA] -> dma_mux0@[37-38]
+
+lpuart9: UART.NXP_LPUART @ sysbus 0x40490000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@150
+    [TransmitDMA, ReceiveDMA] -> dma_mux0@[39-40]
+
+lpuart10: UART.NXP_LPUART @ sysbus 0x40494000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@151
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[38-39]
+
+lpuart11: UART.NXP_LPUART @ sysbus 0x40498000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@152
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[40-41]
+
+lpuart12: UART.NXP_LPUART @ sysbus 0x4049C000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@153
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[42-43]
+
+lpuart13: UART.NXP_LPUART @ sysbus 0x404A0000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@154
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[44-45]
+
+lpuart14: UART.NXP_LPUART @ sysbus 0x404A4000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@155
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[46-47]
+
+lpuart15: UART.NXP_LPUART @ sysbus 0x404A8000
+    frequency: 24000000
+    fifoSize: 4
+    IRQ -> mscm@156
+    [TransmitDMA, ReceiveDMA] -> dma_mux1@[48-49]
+
+can0: CAN.S32K3XX_FlexCAN @ sysbus 0x40304000
+    numberOfMessageBuffers: 96
+    enhancedRxFifoSize: 20
+
+can1: CAN.S32K3XX_FlexCAN @ sysbus 0x40308000
+    numberOfMessageBuffers: 96
+    enhancedRxFifoSize: 20
+
+can2: CAN.S32K3XX_FlexCAN @ sysbus 0x4030C000
+    numberOfMessageBuffers: 96
+    enhancedRxFifoSize: 20
+
+can3: CAN.S32K3XX_FlexCAN @ sysbus 0x40310000
+
+can4: CAN.S32K3XX_FlexCAN @ sysbus 0x40314000
+
+can5: CAN.S32K3XX_FlexCAN @ sysbus 0x40318000
+
+can6: CAN.S32K3XX_FlexCAN @ sysbus 0x4031C000
+
+can7: CAN.S32K3XX_FlexCAN @ sysbus 0x40320000
+
+mc_cgm_mux_0_css: Python.PythonPeripheral @ sysbus 0x402D8304
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_1_css: Python.PythonPeripheral @ sysbus 0x402D8344
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_2_css: Python.PythonPeripheral @ sysbus 0x402D8384
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_3_css: Python.PythonPeripheral @ sysbus 0x402D83C4
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_4_css: Python.PythonPeripheral @ sysbus 0x402D8404
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_5_css: Python.PythonPeripheral @ sysbus 0x402D8444
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_6_css: Python.PythonPeripheral @ sysbus 0x402D8484
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_7_css: Python.PythonPeripheral @ sysbus 0x402D84C4
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_8_css: Python.PythonPeripheral @ sysbus 0x402D8504
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_9_css: Python.PythonPeripheral @ sysbus 0x402D8544
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_10_css: Python.PythonPeripheral @ sysbus 0x402D8584
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_11_css: Python.PythonPeripheral @ sysbus 0x402D85C4
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_12_css: Python.PythonPeripheral @ sysbus 0x402D8604
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_13_css: Python.PythonPeripheral @ sysbus 0x402D8644
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_14_css: Python.PythonPeripheral @ sysbus 0x402D8684
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_15_css: Python.PythonPeripheral @ sysbus 0x402D86C4
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_16_css: Python.PythonPeripheral @ sysbus 0x402D8704
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_17_css: Python.PythonPeripheral @ sysbus 0x402D8744
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_18_css: Python.PythonPeripheral @ sysbus 0x402D8784
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+mc_cgm_mux_19_css: Python.PythonPeripheral @ sysbus 0x402D87C4
+    size: 0x4
+    initable: true
+    filename: "scripts/pydev/flipflop.py"
+
+gmac0: Network.S32K3XX_GMAC @ sysbus 0x40484000
+    systemClockFrequency: 50000000
+    -> mscm@224
+    Channel0TX -> mscm@225
+    Channel0RX -> mscm@226
+    Channel1TX -> mscm@227
+    Channel1RX -> mscm@228
+    Channel2TX -> mscm@229
+    Channel2RX -> mscm@230
+
+gmac1: Network.S32K3XX_GMAC @ sysbus 0x40488000
+    systemClockFrequency: 50000000
+    -> mscm@171
+    Channel0TX -> mscm@172
+    Channel0RX -> mscm@233
+    Channel1TX -> mscm@234
+    Channel1RX -> mscm@235
+    Channel2TX -> mscm@236
+    Channel2RX -> mscm@237
+
+dma: DMA.NXP_eDMA @ sysbus 0x4020C000
+    numberOfChannels: 32
+    [0-31] -> mscm@[4-35]
+
+dma_channels0_11: DMA.NXP_eDMA_Channels @ sysbus 0x40210000
+    dma: dma
+    count: 12
+    channelSize: 0x4000
+
+dma_channels12_32: DMA.NXP_eDMA_Channels @ sysbus 0x40410000
+    dma: dma
+    count: 20
+    firstChannel: 12
+    channelSize: 0x4000
+
+dma_mux0: DMA.S32K3XX_DMAMUX @ sysbus 0x40280000
+    [0-15] -> dma@[0-15]
+
+dma_mux1: DMA.S32K3XX_DMAMUX @ sysbus 0x40284000
+    [0-15] -> dma@[16-31]
+
+sysbus:
+    init:
+        // Core and Systems
+        Tag <0xE0000000 0x1000> "ITM"
+        Tag <0xE0002000 0x1000> "FPB"
+        Tag <0xE0040000 0x1000> "TPIU"
+        Tag <0xE0041000 0x1000> "ETM"
+        Tag <0xE0042000 0x1000> "CTI"
+        Tag <0xE00FF000 0x1000> "Cortex-M7 PPB ROM table"
+        Tag <0xE0080000 0x1000> "MCM"
+        Tag <0x402A8000 0x804> "VIRT_WRAPPER"
+        Tag <0x402C4000 0xA8> "TSPC"
+        Tag <0x40200000 0x714> "AXBS"
+        Tag <0x4027C000 0x48> "INTM"
+        Tag <0x40460000 0x44> "SEMA42"
+        Tag <0x40204000 0x10> "XBIC_AXBS"
+        Tag <0x4040C000 0x10> "XBIC_AXBS_ACE"
+        Tag <0x40008000 0x10> "XBIC_AXBS_ACE_HSE"
+        Tag <0x40208000 0x10> "XBIC_AXBS_PERI"
+        Tag <0x40408000 0x10> "XBIC_AXBS_PRAM_TCM"
+        Tag <0x40400000 0x10> "XBIC_AXBS_TCM"
+        Tag <0x40404000 0x10> "XBIC_AXBS_eDMA"
+        Tag <0x40278000 0x2870> "XRDC"
+
+        // Memory and Memory Interfaces
+        Tag <0x402EC000 0x180> "c40asf_flash"
+        Tag <0x40268000 0x4F4> "PFLASH"
+        Tag <0x40264000 0x4> "PRAMC_0"
+        Tag <0x40464000 0x4> "PRAMC_1"
+        Tag <0x40468000 0x4> "PRAMC_2"
+
+        // Clocking
+        Tag <0x402D8000 0x800> "MC_CGM"
+        Tag <0x402D0000 0xC> "FIRC"
+        Tag <0x402C8000 0x10> "SIRC"
+        Tag <0x402D4000 0x8> "FXOSC"
+        Tag <0x402CC000 0x8> "SXOSC"
+        Tag <0x402E0000 0x88> "PLL"
+        Tag <0x402E4000 0x88> "PLL_AUX"
+
+        // Reset and Boot
+        Tag <0x4028C000 0x28> "MC_RGM"
+
+        // Security and Device GPRs
+        Tag <0x44000000 0x400> "AES_ACCEL"
+        Tag <0x4039C000 0xD8> "Configuration_GPR"
+        Tag <0x402AC000 0x84> "DCM"
+        Tag <0x402AC200 0x510> "DCM_GPR"
+        Tag <0x400B8000 0x290> "MU_2.MUA"
+        Tag <0x400C4000 0x290> "MU_3.MUA"
+        Tag <0x400CC000 0x290> "MU_4.MUA"
+        Tag <0x4038C000 0x290> "MU_0.MUB"
+        Tag <0x404EC000 0x290> "MU_1.MUB"
+        Tag <0x400BC000 0x290> "MU_2.MUB"
+        Tag <0x400C8000 0x290> "MU_3.MUB"
+        Tag <0x400D0000 0x290> "MU_4.MUB"
+
+        // Modes and Power Management
+        Tag <0x402E8000 0x10> "PMC"
+        Tag <0x402B4000 0x74> "WKPU"
+
+        // Safety
+        Tag <0x4050C000 0x8C8> "EIM_0"
+        Tag <0x40510000 0x8C8> "EIM_1"
+        Tag <0x40514000 0x8C8> "EIM_2"
+        Tag <0x40518000 0x8C8> "EIM_3"
+        Tag <0x4025C000 0x23C> "ERM_0"
+        Tag <0x4000C000 0x23C> "ERM_1"
+        Tag <0x40384000 0x13C> "FCCU"
+        Tag <0x403B0000 0x18> "SELFTEST_GPR"
+        Tag <0x403A0000 0x225C> "STCU2"
+        Tag <0x402BC000 0x18> "CMU_0" // FC
+        Tag <0x402BC020 0x10> "CMU_1" // FM
+        Tag <0x402BC040 0x10> "CMU_2" // FM
+        Tag <0x402BC060 0x18> "CMU_3" // FC
+        Tag <0x402BC080 0x18> "CMU_4" // FC
+        Tag <0x402BC0C0 0x18> "CMU_6" // FC
+        Tag <0x40380000, 0x4038000F> "CRC"
+
+        // Real-time control
+        Tag <0x400A0000 0x3B8> "ADC_0"
+        Tag <0x400A4000 0x3B8> "ADC_1"
+        Tag <0x400A8000 0x3B8> "ADC_2"
+        Tag <0x40370000 0x34> "LPCMP_0"
+        Tag <0x40374000 0x34> "LPCMP_1"
+        Tag <0x404E8000 0x34> "LPCMP_2"
+        Tag <0x40098000 0x2AC> "LCU_0"
+        Tag <0x4009C000 0x2AC> "LCU_1"
+        Tag <0x40088000 0x31C> "eMIOS_0"
+        Tag <0x4008C000 0x31C> "eMIOS_1"
+        Tag <0x40090000 0x31C> "eMIOS_2"
+        Tag <0x40084000 0x474> "BCTU"
+        Tag <0x40080000 0xA0> "TRGMUX"
+
+        // Communication
+        Tag <0x4036C000 0xE4> "SAI_0"
+        Tag <0x404DC000 0xE4> "SAI_1"
+        Tag <0x404CC000 0x940> "QuadSPI"
+        Tag <0x67000000 0x400> "QuadSPI RX buffer"
+        Tag <0x68000000 0x80> "QuadSPI_ARDB"
+
+        // Debug
+        Tag <0x40250600 0x3C> "MDM_AP"
+        Tag <0x40254700 0x100> "SDA_AP"
+        Tag <0x40394000 0x10> "JDC"
+
+        // Analog
+        Tag <0x4037C000 0x14> "TEMPSENSE"
+
+        // Mocks
+        Tag <0x402D4004 0x4> "Oscillator Status Register (STAT)" 0x80000000
+        Tag <0x402CC004 0x4> "Oscillator Status Register (SXOSC_STAT)" 0x80000000
+        Tag <0x402E0004 0x4> "PLL Status Register (PLLSR)" 0x4
+        Tag <0x402E4004 0x4> "PLL Status Register (PLLSR)" 0x4
