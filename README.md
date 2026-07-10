@@ -30,7 +30,7 @@ OTA updater* but does not run real Bluetooth. Everything else is the real firmwa
 
 | | |
 |:---:|:---:|
-| ![Boot0](assets/Screenshots/Boot.png) | ![Boot2](assets/Screenshots/Boot2.png)) |
+| ![Boot0](assets/Screenshots/Boot.png) | ![Boot2](assets/Screenshots/Boot2.png) |
 | | |
 | ![Boot3](assets/Screenshots/Boot3.png) | ![Boot4](assets/Screenshots/Boot4.png) |
 | | |
