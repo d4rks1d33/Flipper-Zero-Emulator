@@ -172,6 +172,10 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                     // calls LL_C1_IPCC_ClearFlag_CHx after draining the queue).
                     // When the firmware clears the SYSTEM channel (bit 1), drop
                     // our C2TOC1SR override so subsequent RX_PENDING checks read 0.
+                    if((value & SystemCmdSetFlag) != 0)
+                    {
+                        RespondToSysCommand();
+                    }
                     if((value & SystemChannelFlag) != 0)
                     {
                         c2ToC1SrOverride &= ~SystemChannelFlag;
@@ -270,7 +274,7 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             // the SYSTEM receive channel. Arm the (one-shot) ready delivery.
             var wasMasked = (previous & SystemRxMaskBit) != 0;
             var nowUnmasked = (value & SystemRxMaskBit) == 0;
-            if(wasMasked && nowUnmasked && !readyDelivered && !readyArmed && ShouldFakeStackPresent())
+            if(wasMasked && nowUnmasked && !readyDelivered && !readyArmed)
             {
                 readyArmed = true;
                 this.Log(LogLevel.Info,
@@ -397,12 +401,13 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             sysbus.WriteDoubleWord(pDeviceInfoTable + OffDevInfoSafeBootVersion, NonFusKeyword);
 
             // WirelessFwInfoTable.Version (@+0x10) and .InfoStack (@+0x18).
+            var reportedStackType = ShouldFakeStackPresent() ? RadioStackType : UnsupportedStackType;
             sysbus.WriteDoubleWord(pDeviceInfoTable + OffDevInfoWirelessVersion, RadioStackVersion);
-            sysbus.WriteDoubleWord(pDeviceInfoTable + OffDevInfoWirelessInfoStack, (uint)RadioStackType);
+            sysbus.WriteDoubleWord(pDeviceInfoTable + OffDevInfoWirelessInfoStack, (uint)reportedStackType);
 
             this.Log(LogLevel.Info,
                 "IPCC: published radio-stack info (Version=0x{0:X8}, StackType=0x{1:X2}) at device_info=0x{2:X8}",
-                RadioStackVersion, RadioStackType, pDeviceInfoTable);
+                RadioStackVersion, reportedStackType, pDeviceInfoTable);
         }
 
         private void BuildReadyPacket(IBusController sysbus)
@@ -422,6 +427,36 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                 WirelessFwRunning,               // +0x0D ready_rsp = 0x00
             };
             sysbus.WriteBytes(body, EventPacketBase + OffEvtBody);
+        }
+
+        private void RespondToSysCommand()
+        {
+            var sysbus = machine.SystemBus;
+            var pSysTable = sysbus.ReadDoubleWord(MbRefTableBase + OffRefSysTable);
+            if(pSysTable == 0)
+            {
+                return;
+            }
+            var cmdBuffer = sysbus.ReadDoubleWord(pSysTable + OffSysTablePcmdBuffer);
+            if(cmdBuffer == 0)
+            {
+                return;
+            }
+
+            var cmdWord = sysbus.ReadDoubleWord(cmdBuffer + OffCmdSerial);
+            var cmdCode = (ushort)((cmdWord >> 8) & 0xFFFF);
+
+            var response = new byte[]
+            {
+                SysCmdRespPktType,
+                SysCmdCompleteEvtCode,
+                SysCmdCompletePayloadLen,
+                SysCmdNumHciCommandPackets,
+                (byte)(cmdCode & 0xFF),
+                (byte)((cmdCode >> 8) & 0xFF),
+                SysCmdErrorStatus,
+            };
+            sysbus.WriteBytes(response, cmdBuffer);
         }
 
         // ─── Register offsets ────────────────────────────────────────────────
@@ -475,6 +510,16 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
         private const ushort ShciSubEvtCodeReady = 0x9200; // shci.h:56 SHCI_SUB_EVT_CODE_BASE
         private const byte WirelessFwRunning = 0x00;    // shci.h:36 WIRELESS_FW_RUNNING
         private const uint NonFusKeyword = 0x00000000;  // != FUS_DEVICE_INFO_TABLE_VALIDITY_KEYWORD (0xA94656B9)
+
+        private const uint OffSysTablePcmdBuffer = 0x00;
+        private const uint OffCmdSerial = 0x08;
+        private const uint SystemCmdSetFlag = 1u << 17;
+        private const byte SysCmdRespPktType = 0x11;
+        private const byte SysCmdCompleteEvtCode = 0x0E;
+        private const byte SysCmdCompletePayloadLen = 0x04;
+        private const byte SysCmdNumHciCommandPackets = 0x01;
+        private const byte SysCmdErrorStatus = 0xFF;
+        private const byte UnsupportedStackType = 0x00;
 
         // Defaults: 1.20.0, BLE_FULL. Version packing (mbox_def.h):
         // [24:31]=Major=1, [16:23]=Minor=0x14(20), [8:15]=Sub=0, [4:7]=Branch=0,
